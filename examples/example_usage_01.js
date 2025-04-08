@@ -1,4 +1,4 @@
-import { searchAnime, getSeasons, getEmbed } from '../index.js';
+import { searchAnime, getSeasons, getEmbed } from '../index.js'; // REPLACE BY import { searchAnime, getSeasons, getEmbed } from 'ani-scraped';
 
 const main = async () => {
   const search = await searchAnime('animesama', 'sword art online', 3);

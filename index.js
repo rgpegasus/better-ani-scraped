@@ -1,3 +1,3 @@
-import { searchAnime, getSeasons, getEmbed } from "./scrapers/animesama.js";
+import { searchAnime, getSeasons, getEmbed } from "./scrapers/dispatcher.js";
 
 export { searchAnime, getSeasons, getEmbed };

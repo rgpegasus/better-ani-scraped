@@ -4,9 +4,7 @@ import * as cheerio from 'cheerio';
 // Base domain
 const BASE_URL = "https://anime-sama.fr";
 
-export async function searchAnime(source, query, limit = 10) { // Maximum limit is 48
-  if (source !== 'animesama') throw new Error('Unsupported source');
-
+export async function searchAnime(query, limit = 10) { // Maximum limit is 48
   const url = `${BASE_URL}/catalogue/?type%5B%5D=Anime&search=${encodeURIComponent(query)}`;
   const res = await axios.get(url);
   const $ = cheerio.load(res.data);
@@ -26,9 +24,7 @@ export async function searchAnime(source, query, limit = 10) { // Maximum limit 
   return results;
 }
 
-export async function getSeasons(source, animeUrl, language = "vostfr") {
-  if (source !== "animesama") throw new Error("Unsupported source");
-
+export async function getSeasons(animeUrl, language = "vostfr") {
   const res = await axios.get(animeUrl);
   const $ = cheerio.load(res.data);
   const scriptTags = $("script")
@@ -74,9 +70,7 @@ export async function getSeasons(source, animeUrl, language = "vostfr") {
   return seasons;
 }
 
-export async function getEmbed(source, animeUrl, hostPriority=['sibnet', 'vidmoly']) {
-  if (source !== 'animesama') throw new Error('Unsupported source');
-
+export async function getEmbed(animeUrl, hostPriority=['sibnet', 'vidmoly']) {
   const res = await axios.get(animeUrl);
   const $ = cheerio.load(res.data);
 

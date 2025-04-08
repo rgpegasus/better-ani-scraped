@@ -36,3 +36,8 @@ console.log('🎬 Embed Links:', embeds);
 - Add a function that lists all anime (like searchAnime but for all available animes on the platform).
 - Add a function that shows information of a specific anime.
 - Add a function that returns all available languages of a specific anime.
+
+___
+
+### Special thanks to
+- [RG Pegasus](https://github.com/rgpegasus)
