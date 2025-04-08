@@ -6,8 +6,9 @@ const BASE_URL = "https://anime-sama.fr";
 
 export async function searchAnime(source, query, limit = 10) {
   if (source !== 'animesama') throw new Error('Unsupported source');
-
-  const url = `${BASE_URL}/catalogue?search=${encodeURIComponent(query)}`;
+  
+  const url = `${BASE_URL}/catalogue/?type%5B%5D=Anime&search=${encodeURIComponent(query)}`;
+  console.log(url)
   const res = await axios.get(url);
   const $ = cheerio.load(res.data);
   const results = {};
