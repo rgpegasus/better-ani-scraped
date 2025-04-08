@@ -23,3 +23,19 @@ export async function getEmbed(source, animeUrl, hostPriority=['sibnet', 'vidmol
 
   throw new Error("Unsupported source");
 }
+
+export async function getAnimeInfo(source, animeUrl) {
+  if (source === "animesama") {
+    return await animesama.getAnimeInfo(animeUrl);
+  }
+
+  throw new Error("Unsupported source");
+}
+
+export async function getAvailableLanguages(source, animeUrl) {
+  if (source === "animesama") {
+    return await animesama.getAvailableLanguages(animeUrl);
+  }
+
+  throw new Error("Unsupported source");
+}
