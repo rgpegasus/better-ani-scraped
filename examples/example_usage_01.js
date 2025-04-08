@@ -5,7 +5,7 @@ const main = async () => {
   console.log('🔍 Search Results:', search);
 
   const animeUrl = Object.values(search)[0];
-  const seasons = await getSeasons('animesama', animeUrl);
+  const seasons = await getSeasons('animesama', animeUrl, "vostfr");
   console.log('📺 Seasons:', seasons);
 
   const embeds = await getEmbed('animesama', seasons[0].url, ['sibnet', 'vidmoly']);

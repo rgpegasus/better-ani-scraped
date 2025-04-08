@@ -4,11 +4,10 @@ import * as cheerio from 'cheerio';
 // Base domain
 const BASE_URL = "https://anime-sama.fr";
 
-export async function searchAnime(source, query, limit = 10) {
+export async function searchAnime(source, query, limit = 10) { // Maximum limit is 48
   if (source !== 'animesama') throw new Error('Unsupported source');
-  
+
   const url = `${BASE_URL}/catalogue/?type%5B%5D=Anime&search=${encodeURIComponent(query)}`;
-  console.log(url)
   const res = await axios.get(url);
   const $ = cheerio.load(res.data);
   const results = {};
@@ -27,7 +26,7 @@ export async function searchAnime(source, query, limit = 10) {
   return results;
 }
 
-export async function getSeasons(source, animeUrl) {
+export async function getSeasons(source, animeUrl, language = "vostfr") {
   if (source !== "animesama") throw new Error("Unsupported source");
 
   const res = await axios.get(animeUrl);
@@ -40,6 +39,7 @@ export async function getSeasons(source, animeUrl) {
 
   const animeName = animeUrl.split("/")[4];
   const seasons = [];
+  let languageAvailable = false;
 
   for (let script of scriptTags) {
     const content = $(script).html();
@@ -49,13 +49,26 @@ export async function getSeasons(source, animeUrl) {
 
     for (let match of matches) {
       const name = match[1];
-      const href = match[2];
-      const fullUrl = `${BASE_URL}/catalogue/${animeName}/${href}`;
+      const href = match[2].split("/")[0];
+      const fullUrl = `${BASE_URL}/catalogue/${animeName}/${href}/${language}`;
 
       if (name !== "nom" && href !== "url") {
-        seasons.push({ name, url: fullUrl });
+        try {
+          // Check if this language version exists
+          const check = await axios.head(fullUrl);
+          if (check.status === 200) {
+            languageAvailable = true;
+            seasons.push({ name, url: fullUrl });
+          }
+        } catch (err) {
+          // Ignore 404s or connection issues
+        }
       }
     }
+  }
+
+  if (!languageAvailable) {
+    return { error: `Language "${language}" is not available for this anime.` };
   }
 
   return seasons;

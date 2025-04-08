@@ -5,6 +5,7 @@ Scrape anime data from different sources (only anime-sama.fr for the moment)
 ```
 npm install ani-scraped
 ```
+To update the package run: `npm update --save`.
 
 ## Example usage
 View files in the `examples` folder.
@@ -30,3 +31,8 @@ console.log('📺 Seasons:', seasons);
 const embeds = await getEmbed('animesama', "https://anime-sama.fr/catalogue/sword-art-online/saison1/vostfr", ['sibnet', 'vidmoly']);
 console.log('🎬 Embed Links:', embeds);
 ```
+
+## TODO
+- Add a function that lists all anime (like searchAnime but for all available animes on the platform).
+- Add a function that shows information of a specific anime.
+- Add a function that returns all available languages of a specific anime.
