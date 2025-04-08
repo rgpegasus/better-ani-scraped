@@ -4,7 +4,7 @@ import * as cheerio from 'cheerio';
 // Base domain
 const BASE_URL = "https://anime-sama.fr";
 
-export async function searchAnime(source, query, limit = 5) {
+export async function searchAnime(source, query, limit = 10) {
   if (source !== 'animesama') throw new Error('Unsupported source');
 
   const url = `${BASE_URL}/catalogue?search=${encodeURIComponent(query)}`;

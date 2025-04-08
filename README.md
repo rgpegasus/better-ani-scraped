@@ -2,7 +2,7 @@
 Scrape anime data from different sources (only anime-sama.fr for the moment)
 
 ## Install
-```bas
+```
 npm install ani-scraped
 ```
 
