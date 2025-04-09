@@ -1,6 +1,6 @@
 {
   "name": "ani-scraped",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Scrape anime data from different sources (only anime-sama.fr for the moment)",
   "main": "index.js",
   "scripts": {

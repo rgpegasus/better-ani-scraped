@@ -1,31 +1,24 @@
 import * as animesama from "./animesama.js";
 
-export async function getSeasons(source, animeUrl, language = "vostfr") {
+export async function getSeasons(source, animeUrl, ...rest) {
   if (source === "animesama") {
-    return await animesama.getSeasons(animeUrl, language);
+    return await animesama.getSeasons(animeUrl, ...rest);
   }
 
   throw new Error("Unsupported source");
 }
 
-export async function searchAnime(source, query, limit = 10) {
+export async function searchAnime(source, query, ...rest) {
   if (source === "animesama") {
-    return await animesama.searchAnime(query, limit);
+    return await animesama.searchAnime(query, ...rest);
   }
 
   throw new Error("Unsupported source");
 }
 
-export async function getEmbed(
-  source,
-  animeUrl,
-  hostPriority = ["sibnet", "vidmoly"]
-) {
+export async function getEmbed(source, animeUrl, ...rest) {
   if (source === "animesama") {
-    return await animesama.getEmbed(
-      animeUrl,
-      (hostPriority = ["sibnet", "vidmoly"])
-    );
+    return await animesama.getEmbed(animeUrl, ...rest);
   }
 
   throw new Error("Unsupported source");
@@ -47,9 +40,9 @@ export async function getAvailableLanguages(source, animeUrl) {
   throw new Error("Unsupported source");
 }
 
-export async function getAllAnime(source, output) {
+export async function getAllAnime(source, ...rest) {
   if (source === "animesama") {
-    return await animesama.getAllAnime(output);
+    return await animesama.getAllAnime(...rest);
   }
 
   throw new Error("Unsupported source");

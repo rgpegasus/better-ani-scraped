@@ -8,7 +8,7 @@ const main = async () => {
   const seasons = await getSeasons('animesama', animeUrl, "vostfr");
   console.log('📺 Seasons:', seasons);
 
-  const embeds = await getEmbed('animesama', seasons[0].url, ['sibnet', 'vidmoly']);
+  const embeds = await getEmbed('animesama', seasons[0].url, ["vidmoly", "sibnet"]);
   console.log('🎬 Embed Links:', embeds);
 };
 
