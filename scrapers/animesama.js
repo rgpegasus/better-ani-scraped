@@ -164,7 +164,7 @@ export async function getAvailableLanguages(animeUrl) {
   return languageLinks;
 }
 
-export async function getAllAnime(output="anime_list.json") {
+export async function getAllAnime(output = "anime_list.json") {
   let animeLinks = [];
   let page = 1;
 
@@ -189,9 +189,11 @@ export async function getAllAnime(output="anime_list.json") {
         const link = anchor.attr("href");
 
         // Extract the tag section (e.g., "Anime, Film", "Manga", etc.)
-        const tagText = anchor.find("p").filter((_, p) =>
-          $(p).text().includes("Anime")
-        ).first().text();
+        const tagText = anchor
+          .find("p")
+          .filter((_, p) => $(p).text().includes("Anime"))
+          .first()
+          .text();
 
         // Only include entries that have "Anime" in the tag text
         if (title && link && tagText.includes("Anime")) {
