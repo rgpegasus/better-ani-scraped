@@ -2,12 +2,11 @@ import axios from "axios";
 import * as cheerio from "cheerio";
 import fs from "fs";
 
-// Base domain
-const BASE_URL = "https://anime-sama.fr";
+const CATALOGUE_URL = `https://anime-sama.fr/catalogue`;
 
 export async function searchAnime(query, limit = 10) {
   // Maximum limit is 48
-  const url = `${BASE_URL}/catalogue/?type%5B%5D=Anime&search=${encodeURIComponent(
+  const url = `${CATALOGUE_URL}/?type%5B%5D=Anime&search=${encodeURIComponent(
     query
   )}`;
   const res = await axios.get(url);
@@ -18,10 +17,13 @@ export async function searchAnime(query, limit = 10) {
     if (i >= limit) return false;
 
     const link = $(el).attr("href");
+    console.log(link);
     const title = $(el).find("h1").first().text().trim();
 
     if (title && link) {
-      results[title] = link.startsWith("http") ? link : `${BASE_URL}${link}`;
+      results[title] = link.startsWith("http")
+        ? link
+        : `${CATALOGUE_URL}${link}`;
     }
   });
 
@@ -50,7 +52,7 @@ export async function getSeasons(animeUrl, language = "vostfr") {
     for (let match of matches) {
       const name = match[1];
       const href = match[2].split("/")[0];
-      const fullUrl = `${BASE_URL}/catalogue/${animeName}/${href}/${language}`;
+      const fullUrl = `${CATALOGUE_URL}/${animeName}/${href}/${language}`;
 
       if (name !== "nom" && href !== "url") {
         try {
@@ -123,7 +125,6 @@ export async function getAnimeInfo(animeUrl) {
 
   const banner = $("#coverOeuvre").attr("src");
 
-  // Get genres
   const genres = $("h2:contains('Genres')")
     .next("a")
     .text()
@@ -131,7 +132,6 @@ export async function getAnimeInfo(animeUrl) {
     .split(",")
     .map((genre) => genre.trim());
 
-  // Get synopsis
   const synopsis = $("h2:contains('Synopsis')").next("p").text().trim();
 
   return {
@@ -142,15 +142,13 @@ export async function getAnimeInfo(animeUrl) {
 }
 
 export async function getAvailableLanguages(animeUrl) {
-  const possibleLanguages = [
-    "vf", "va", "vkr", "vcn", "vqc", "vf1", "vf2"
-  ];
+  const possibleLanguages = ["vf", "va", "vkr", "vcn", "vqc", "vf1", "vf2"];
 
   const languageLinks = ["VOSTFR"];
 
   // Iterate over each possible language and check if the page exists
   for (let language of possibleLanguages) {
-    const seasonUrl = Object.values(await getSeasons(animeUrl))[0].url
+    const seasonUrl = Object.values(await getSeasons(animeUrl))[0].url;
     const languageUrl = seasonUrl.replace("vostfr", `${language}`);
     try {
       const res = await axios.get(languageUrl);
@@ -164,4 +162,60 @@ export async function getAvailableLanguages(animeUrl) {
   }
 
   return languageLinks;
+}
+
+export async function getAllAnime(output="anime_list.json") {
+  let animeLinks = [];
+  let page = 1;
+
+  try {
+    while (true) {
+      const url = page === 1 ? CATALOGUE_URL : `${CATALOGUE_URL}?page=${page}`;
+      // console.log(`Fetching page ${page}: ${url}`);
+
+      const res = await axios.get(url);
+      const $ = cheerio.load(res.data);
+
+      const containers = $("div.shrink-0.m-3.rounded.border-2");
+
+      if (containers.length === 0) {
+        console.log("No more anime found, stopping.");
+        break;
+      }
+
+      containers.each((_, el) => {
+        const anchor = $(el).find("a");
+        const title = anchor.find("h1").text().trim();
+        const link = anchor.attr("href");
+
+        // Extract the tag section (e.g., "Anime, Film", "Manga", etc.)
+        const tagText = anchor.find("p").filter((_, p) =>
+          $(p).text().includes("Anime")
+        ).first().text();
+
+        // Only include entries that have "Anime" in the tag text
+        if (title && link && tagText.includes("Anime")) {
+          animeLinks.push({
+            name: title,
+            url: link.startsWith("http") ? link : `${BASE_URL}${link}`,
+          });
+        }
+      });
+
+      page++;
+      await new Promise((r) => setTimeout(r, 300)); // Friendly crawl
+    }
+
+    // Deduplicate and write to file
+    const uniqueLinks = animeLinks.filter(
+      (item, index, self) => index === self.findIndex((i) => i.url === item.url)
+    );
+
+    fs.writeFileSync(output, JSON.stringify(uniqueLinks, null, 2), "utf-8");
+    // console.log(`✅ Done! Found ${uniqueLinks.length} anime, saved to ${output}`);
+    return true;
+  } catch (err) {
+    console.error("❌ Error occurred:", err.message);
+    return false;
+  }
 }
