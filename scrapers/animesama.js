@@ -45,8 +45,12 @@ export async function getSeasons(animeUrl, language = "vostfr") {
 
   for (let script of scriptTags) {
     const content = $(script).html();
+
+    // Remove anything inside comments (between /* and */)
+    const uncommentedContent = content.replace(/\/\*[\s\S]*?\*\//g, "");
+
     const matches = [
-      ...content.matchAll(/panneauAnime\("([^"]+)", "([^"]+)"\);/g),
+      ...uncommentedContent.matchAll(/panneauAnime\("([^"]+)", "([^"]+)"\);/g),
     ];
 
     for (let match of matches) {
@@ -54,17 +58,15 @@ export async function getSeasons(animeUrl, language = "vostfr") {
       const href = match[2].split("/")[0];
       const fullUrl = `${CATALOGUE_URL}/${animeName}/${href}/${language}`;
 
-      if (name !== "nom" && href !== "url") {
-        try {
-          // Check if this language version exists
-          const check = await axios.head(fullUrl);
-          if (check.status === 200) {
-            languageAvailable = true;
-            seasons.push({ name, url: fullUrl });
-          }
-        } catch (err) {
-          // Ignore 404s or connection issues
+      try {
+        // Check if this language version exists
+        const check = await axios.head(fullUrl);
+        if (check.status === 200) {
+          languageAvailable = true;
+          seasons.push({ name, url: fullUrl });
         }
+      } catch (err) {
+        // Ignore 404s or connection issues
       }
     }
   }
@@ -75,6 +77,7 @@ export async function getSeasons(animeUrl, language = "vostfr") {
 
   return seasons;
 }
+
 
 export async function getEmbed(animeUrl, hostPriority = ["sibnet", "vidmoly"]) {
   const res = await axios.get(animeUrl);
@@ -164,22 +167,20 @@ export async function getAvailableLanguages(animeUrl) {
   return languageLinks;
 }
 
-export async function getAllAnime(output = "anime_list.json") {
+export async function getAllAnime(output = "anime_list.json", get_seasons = false) { // BE CAREFUL, GET_SEASONS TAKES A VERY VERY LONG TIME TO FINISH
   let animeLinks = [];
   let page = 1;
 
   try {
     while (true) {
       const url = page === 1 ? CATALOGUE_URL : `${CATALOGUE_URL}?page=${page}`;
-      // console.log(`Fetching page ${page}: ${url}`);
-
       const res = await axios.get(url);
       const $ = cheerio.load(res.data);
 
       const containers = $("div.shrink-0.m-3.rounded.border-2");
 
       if (containers.length === 0) {
-        console.log("No more anime found, stopping.");
+        // console.log("No more anime found, stopping.");
         break;
       }
 
@@ -188,33 +189,44 @@ export async function getAllAnime(output = "anime_list.json") {
         const title = anchor.find("h1").text().trim();
         const link = anchor.attr("href");
 
-        // Extract the tag section (e.g., "Anime, Film", "Manga", etc.)
         const tagText = anchor
           .find("p")
           .filter((_, p) => $(p).text().includes("Anime"))
           .first()
           .text();
 
-        // Only include entries that have "Anime" in the tag text
         if (title && link && tagText.includes("Anime")) {
-          animeLinks.push({
-            name: title,
-            url: link.startsWith("http") ? link : `${BASE_URL}${link}`,
-          });
+          const fullUrl = link.startsWith("http") ? link : `${BASE_URL}${link}`;
+          animeLinks.push({ name: title, url: fullUrl });
         }
       });
 
       page++;
-      await new Promise((r) => setTimeout(r, 300)); // Friendly crawl
+      await new Promise((r) => setTimeout(r, 300));
     }
 
-    // Deduplicate and write to file
+    // Deduplicate
     const uniqueLinks = animeLinks.filter(
       (item, index, self) => index === self.findIndex((i) => i.url === item.url)
     );
 
+    if (get_seasons) {
+      // console.log("Fetching seasons for each anime...");
+      for (let anime of uniqueLinks) {
+        try {
+          const seasons = await getSeasons(anime.url);
+          anime.seasons = Array.isArray(seasons) ? seasons : [];
+        } catch (err) {
+          console.warn(`⚠️ Failed to fetch seasons for ${anime.name}: ${err.message}`);
+          anime.seasons = [];
+        }
+
+        // Optional delay to avoid rate-limiting
+        await new Promise((r) => setTimeout(r, 300));
+      }
+    }
+
     fs.writeFileSync(output, JSON.stringify(uniqueLinks, null, 2), "utf-8");
-    // console.log(`✅ Done! Found ${uniqueLinks.length} anime, saved to ${output}`);
     return true;
   } catch (err) {
     console.error("❌ Error occurred:", err.message);

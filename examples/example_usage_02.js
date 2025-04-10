@@ -1,4 +1,4 @@
-import { getAnimeInfo, getAvailableLanguages } from "../index.js"; // REPLACE BY import { searchAnime, getSeasons, getEmbed } from 'ani-scraped';
+import { getAnimeInfo, getAvailableLanguages } from "../index.js"; // REPLACE BY "from 'ani-scraped';"
 
 const main = async () => {
   const animeUrl = "https://anime-sama.fr/catalogue/sword-art-online";

@@ -1,8 +1,8 @@
 // FUTURE COMMAND (NOT IMPLEMENTED YET)
-import { getAllAnime } from "../index.js"; // REPLACE BY import { searchAnime, getSeasons, getEmbed } from 'ani-scraped';
+import { getAllAnime } from "../index.js"; // REPLACE BY "from 'ani-scraped';"
 
 const main = async () => {
-  await getAllAnime("animesama", "output_anime_list.json");
+  await getAllAnime("animesama", "output_anime_list.json", false);
 };
 
 main().catch(console.error);
