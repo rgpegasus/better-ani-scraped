@@ -55,3 +55,11 @@ export async function getLatestEpisodes(source, ...rest) {
 
   throw new Error("Unsupported source");
 }
+
+export async function getRandomAnime(source) {
+  if (source === "animesama") {
+    return await animesama.getRandomAnime();
+  }
+
+  throw new Error("Unsupported source");
+}

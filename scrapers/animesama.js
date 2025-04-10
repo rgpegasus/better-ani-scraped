@@ -276,3 +276,27 @@ export async function getLatestEpisodes(languageFilter = null) {
     return [];
   }
 }
+
+export async function getRandomAnime() {
+  try {
+    const res = await axios.get(`${CATALOGUE_URL}/?type[]=Anime&search=&random=1`);
+    const $ = cheerio.load(res.data);
+
+    const container = $("div.shrink-0.m-3.rounded.border-2").first();
+    const anchor = container.find("a");
+    const title = anchor.find("h1").text().trim();
+    const link = anchor.attr("href");
+
+    if (title && link) {
+      return {
+        name: title,
+        url: link,
+      };
+    } else {
+      throw new Error("No anime found in random response.");
+    }
+  } catch (err) {
+    console.error("❌ Failed to fetch random anime:", err.message);
+    return null;
+  }
+}
