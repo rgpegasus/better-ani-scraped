@@ -5,6 +5,7 @@ import {
   getAnimeInfo,
   getAvailableLanguages,
   getAllAnime,
+  getLatestEpisodes,
 } from "./scrapers/dispatcher.js";
 
 export {
@@ -14,4 +15,5 @@ export {
   getAnimeInfo,
   getAvailableLanguages,
   getAllAnime,
+  getLatestEpisodes,
 };

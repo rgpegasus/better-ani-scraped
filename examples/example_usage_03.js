@@ -1,4 +1,3 @@
-// FUTURE COMMAND (NOT IMPLEMENTED YET)
 import { getAllAnime } from "../index.js"; // REPLACE BY "from 'ani-scraped';"
 
 const main = async () => {

@@ -2,7 +2,8 @@ import axios from "axios";
 import * as cheerio from "cheerio";
 import fs from "fs";
 
-const CATALOGUE_URL = `https://anime-sama.fr/catalogue`;
+const BASE_URL = "https://anime-sama.fr";
+const CATALOGUE_URL = `${BASE_URL}/catalogue`;
 
 export async function searchAnime(query, limit = 10) {
   // Maximum limit is 48
@@ -126,7 +127,7 @@ export async function getAnimeInfo(animeUrl) {
   const res = await axios.get(animeUrl);
   const $ = cheerio.load(res.data);
 
-  const banner = $("#coverOeuvre").attr("src");
+  const cover = $("#coverOeuvre").attr("src");
 
   const genres = $("h2:contains('Genres')")
     .next("a")
@@ -138,7 +139,7 @@ export async function getAnimeInfo(animeUrl) {
   const synopsis = $("h2:contains('Synopsis')").next("p").text().trim();
 
   return {
-    banner,
+    cover,
     genres,
     synopsis,
   };
@@ -231,5 +232,47 @@ export async function getAllAnime(output = "anime_list.json", get_seasons = fals
   } catch (err) {
     console.error("❌ Error occurred:", err.message);
     return false;
+  }
+}
+
+export async function getLatestEpisodes(languageFilter = null) {
+  try {
+    const res = await axios.get(BASE_URL);
+    const $ = cheerio.load(res.data);
+
+    const container = $("#containerAjoutsAnimes");
+    const episodes = [];
+
+    container.find("a").each((_, el) => {
+      const link = $(el).attr("href");
+      const title = $(el).find("h1").text().trim();
+      const cover = $(el).find("img").attr("src");
+
+      const buttons = $(el).find("button");
+      const language = $(buttons[0]).text().trim().toLowerCase(); // Normalisation
+      const episode = $(buttons[1]).text().trim();
+
+      if (
+        title &&
+        link &&
+        cover &&
+        language &&
+        episode &&
+        (languageFilter === null || language === languageFilter.toLowerCase())
+      ) {
+        episodes.push({
+          name: title,
+          url: link,
+          cover,
+          language,
+          episode,
+        });
+      }
+    });
+
+    return episodes;
+  } catch (err) {
+    console.error("❌ Failed to fetch today episodes:", err.message);
+    return [];
   }
 }

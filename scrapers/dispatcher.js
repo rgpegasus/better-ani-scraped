@@ -47,3 +47,11 @@ export async function getAllAnime(source, ...rest) {
 
   throw new Error("Unsupported source");
 }
+
+export async function getLatestEpisodes(source, ...rest) {
+  if (source === "animesama") {
+    return await animesama.getLatestEpisodes(...rest);
+  }
+
+  throw new Error("Unsupported source");
+}
