@@ -79,7 +79,6 @@ export async function getSeasons(animeUrl, language = "vostfr") {
   return seasons;
 }
 
-
 export async function getEmbed(animeUrl, hostPriority = ["sibnet", "vidmoly"]) {
   const res = await axios.get(animeUrl);
   const $ = cheerio.load(res.data);
@@ -168,7 +167,11 @@ export async function getAvailableLanguages(animeUrl) {
   return languageLinks;
 }
 
-export async function getAllAnime(output = "anime_list.json", get_seasons = false) { // BE CAREFUL, GET_SEASONS TAKES A VERY VERY LONG TIME TO FINISH
+export async function getAllAnime(
+  output = "anime_list.json",
+  get_seasons = false
+) {
+  // BE CAREFUL, GET_SEASONS TAKES A VERY VERY LONG TIME TO FINISH
   let animeLinks = [];
   let page = 1;
 
@@ -218,7 +221,9 @@ export async function getAllAnime(output = "anime_list.json", get_seasons = fals
           const seasons = await getSeasons(anime.url);
           anime.seasons = Array.isArray(seasons) ? seasons : [];
         } catch (err) {
-          console.warn(`⚠️ Failed to fetch seasons for ${anime.name}: ${err.message}`);
+          console.warn(
+            `⚠️ Failed to fetch seasons for ${anime.name}: ${err.message}`
+          );
           anime.seasons = [];
         }
 
@@ -279,7 +284,9 @@ export async function getLatestEpisodes(languageFilter = null) {
 
 export async function getRandomAnime() {
   try {
-    const res = await axios.get(`${CATALOGUE_URL}/?type[]=Anime&search=&random=1`);
+    const res = await axios.get(
+      `${CATALOGUE_URL}/?type[]=Anime&search=&random=1`
+    );
     const $ = cheerio.load(res.data);
 
     const container = $("div.shrink-0.m-3.rounded.border-2").first();
