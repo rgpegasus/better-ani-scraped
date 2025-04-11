@@ -1,7 +1,7 @@
 import { searchAnime, getSeasons, getEmbed } from "../index.js"; // REPLACE BY "from 'ani-scraped';"
 
 const main = async () => {
-  const search = await searchAnime("animesama", "sword art online", 3);
+  const search = await searchAnime("animesama", "one piece", 3);
   console.log("🔍 Search Results:", search);
 
   const animeUrl = Object.values(search)[0].url;

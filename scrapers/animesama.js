@@ -6,7 +6,9 @@ const BASE_URL = "https://anime-sama.fr";
 const CATALOGUE_URL = `${BASE_URL}/catalogue`;
 
 export async function searchAnime(query, limit = 10) {
-  const url = `${CATALOGUE_URL}/?type%5B%5D=Anime&search=${encodeURIComponent(query)}`;
+  const url = `${CATALOGUE_URL}/?type%5B%5D=Anime&search=${encodeURIComponent(
+    query
+  )}`;
   const res = await axios.get(url);
   const $ = cheerio.load(res.data);
   const results = [];
@@ -16,22 +18,36 @@ export async function searchAnime(query, limit = 10) {
 
     const anchor = $(el);
     const link = anchor.attr("href");
-    const title = anchor.find("h1").first().text().trim();
-    const altRaw = anchor.find("p.text-xs.opacity-40.italic").first().text().trim();
+    const name = anchor.find("h1").first().text().trim();
+    const altRaw = anchor
+      .find("p.text-xs.opacity-40.italic")
+      .first()
+      .text()
+      .trim();
     const cover = anchor.find("img").first().attr("src");
 
     const altTitles = altRaw
-      ? altRaw.split(",").map((t) => t.trim()).filter(Boolean)
+      ? altRaw
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean)
       : [];
 
-    const genreRaw = anchor.find("p.text-xs.font-medium.text-gray-300").first().text().trim();
+    const genreRaw = anchor
+      .find("p.text-xs.font-medium.text-gray-300")
+      .first()
+      .text()
+      .trim();
     const genres = genreRaw
-      ? genreRaw.split(",").map((g) => g.trim()).filter(Boolean)
+      ? genreRaw
+          .split(",")
+          .map((g) => g.trim())
+          .filter(Boolean)
       : [];
 
-    if (title && link) {
+    if (name && link) {
       results.push({
-        title,
+        name,
         altTitles,
         genres,
         url: link.startsWith("http") ? link : `${CATALOGUE_URL}${link}`,
@@ -45,7 +61,12 @@ export async function searchAnime(query, limit = 10) {
 
 export async function getSeasons(animeUrl, language = "vostfr") {
   const res = await axios.get(animeUrl);
-  const $ = cheerio.load(res.data);
+  const html = res.data;
+
+  // Only keep the part before the Kai section
+  const mainAnimeOnly = html.split("Anime Version Kai")[0];
+
+  const $ = cheerio.load(mainAnimeOnly);
   const scriptTags = $("script")
     .toArray()
     .filter((script) => {
@@ -59,7 +80,7 @@ export async function getSeasons(animeUrl, language = "vostfr") {
   for (let script of scriptTags) {
     const content = $(script).html();
 
-    // Remove anything inside comments (between /* and */)
+    // Remove anything inside comments (/* ... */)
     const uncommentedContent = content.replace(/\/\*[\s\S]*?\*\//g, "");
 
     const matches = [
@@ -72,14 +93,13 @@ export async function getSeasons(animeUrl, language = "vostfr") {
       const fullUrl = `${CATALOGUE_URL}/${animeName}/${href}/${language}`;
 
       try {
-        // Check if this language version exists
         const check = await axios.head(fullUrl);
         if (check.status === 200) {
           languageAvailable = true;
           seasons.push({ name, url: fullUrl });
         }
       } catch (err) {
-        // Ignore 404s or connection issues
+        // Ignore missing URLs
       }
     }
   }
@@ -303,13 +323,41 @@ export async function getRandomAnime() {
 
     const container = $("div.shrink-0.m-3.rounded.border-2").first();
     const anchor = container.find("a");
-    const title = anchor.find("h1").text().trim();
     const link = anchor.attr("href");
+    const name = anchor.find("h1").first().text().trim();
+    const altRaw = anchor
+      .find("p.text-xs.opacity-40.italic")
+      .first()
+      .text()
+      .trim();
+    const cover = anchor.find("img").first().attr("src");
 
-    if (title && link) {
+    const altTitles = altRaw
+      ? altRaw
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean)
+      : [];
+
+    const genreRaw = anchor
+      .find("p.text-xs.font-medium.text-gray-300")
+      .first()
+      .text()
+      .trim();
+    const genres = genreRaw
+      ? genreRaw
+          .split(",")
+          .map((g) => g.trim())
+          .filter(Boolean)
+      : [];
+
+    if (name && link) {
       return {
-        name: title,
-        url: link,
+        name,
+        altTitles,
+        genres,
+        url: link.startsWith("http") ? link : `${CATALOGUE_URL}${link}`,
+        cover,
       };
     } else {
       throw new Error("No anime found in random response.");
