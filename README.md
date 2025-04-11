@@ -1,5 +1,6 @@
 # Ani-Scraped
-Scrape anime data from different sources (only anime-sama.fr for the moment)
+
+A set of utility functions for scraping anime data from multiple sources (only [anime-sama.fr](https://anime-sama.fr) available at the moment). This tool allows you to search for anime, retrieve information, get episodes, and more.
 
 ## Install
 ```
@@ -7,34 +8,15 @@ npm install ani-scraped@latest
 ```
 
 ## Example usage
-View files in the `examples` folder.
+View files in the [examples](https://github.com/hxpe-dev/ani-scraped/tree/main/examples) folder.
 
-At the head of your file, start by importing the necessary classes
-```js
-import { searchAnime, getSeasons, getEmbed } from 'ani-scraped';
-```
-- Search for anime urls
-```js
-// This searches "sword art online" on anime-sama with a maximum of 3 results.
-const search = await searchAnime('animesama', 'sword art online', 3);
-console.log('🔍 Search Results:', search);
-```
-- Get the seasons of from an anime url
-```js
-const seasons = await getSeasons('animesama', "https://anime-sama.fr/catalogue/sword-art-online/");
-console.log('📺 Seasons:', seasons);
-```
-- Get all embed links from an anime season
-```js
-// Returns all anime-sama embed links from the URL, prioritizing sibnet over vidmoly.
-const embeds = await getEmbed('animesama', "https://anime-sama.fr/catalogue/sword-art-online/saison1/vostfr", ['sibnet', 'vidmoly']);
-console.log('🎬 Embed Links:', embeds);
-```
+## Documentation
+Full API reference available in the [documentation](https://github.com/hxpe-dev/ani-scraped/blob/main/DOCUMENTATION.md) file.
 
 ## TODO
 - Create a documentation for the package.
 
-___
+
 
 ### Special thanks to
 - [RG Pegasus](https://github.com/rgpegasus)
