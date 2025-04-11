@@ -136,4 +136,4 @@ Fetches a random anime from the catalogue.
 
 ---
 
-> ⚠️ This project scrapes data from anime-sama.fr. Use responsibly and respect the site's terms of use.
+> ⚠️ This project scrapes data from online sources. Use at your own risk.
