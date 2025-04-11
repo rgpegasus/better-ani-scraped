@@ -5,7 +5,7 @@ const main = async () => {
   const animeInfo = await getAnimeInfo("animesama", animeUrl);
   console.log(animeInfo);
 
-  const animeLanguages = await getAvailableLanguages("animesama", animeUrl);
+  const animeLanguages = await getAvailableLanguages("animesama", animeUrl, ["vf"]);
   console.log(animeLanguages);
 };
 

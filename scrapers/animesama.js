@@ -176,13 +176,11 @@ export async function getAnimeInfo(animeUrl) {
   };
 }
 
-export async function getAvailableLanguages(animeUrl) {
-  const possibleLanguages = ["vf", "va", "vkr", "vcn", "vqc", "vf1", "vf2"];
-
+export async function getAvailableLanguages(animeUrl, wantedLanguages = ["vf", "va", "vkr", "vcn", "vqc"]) {
   const languageLinks = ["VOSTFR"];
 
   // Iterate over each possible language and check if the page exists
-  for (let language of possibleLanguages) {
+  for (let language of wantedLanguages) {
     const seasonUrl = Object.values(await getSeasons(animeUrl))[0].url;
     const languageUrl = seasonUrl.replace("vostfr", `${language}`);
     try {

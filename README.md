@@ -3,7 +3,7 @@ Scrape anime data from different sources (only anime-sama.fr for the moment)
 
 ## Install
 ```
-npm install ani-scraped
+npm install ani-scraped@latest
 ```
 
 ## Example usage

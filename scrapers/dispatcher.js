@@ -32,9 +32,9 @@ export async function getAnimeInfo(source, animeUrl) {
   throw new Error("Unsupported source");
 }
 
-export async function getAvailableLanguages(source, animeUrl) {
+export async function getAvailableLanguages(source, animeUrl, ...rest) {
   if (source === "animesama") {
-    return await animesama.getAvailableLanguages(animeUrl);
+    return await animesama.getAvailableLanguages(animeUrl, ...rest);
   }
 
   throw new Error("Unsupported source");
