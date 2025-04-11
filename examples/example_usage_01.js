@@ -4,7 +4,7 @@ const main = async () => {
   const search = await searchAnime("animesama", "sword art online", 3);
   console.log("🔍 Search Results:", search);
 
-  const animeUrl = Object.values(search)[0];
+  const animeUrl = Object.values(search)[0].url;
   const seasons = await getSeasons("animesama", animeUrl, "vostfr");
   console.log("📺 Seasons:", seasons);
 

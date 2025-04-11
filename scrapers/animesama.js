@@ -6,25 +6,37 @@ const BASE_URL = "https://anime-sama.fr";
 const CATALOGUE_URL = `${BASE_URL}/catalogue`;
 
 export async function searchAnime(query, limit = 10) {
-  // Maximum limit is 48
-  const url = `${CATALOGUE_URL}/?type%5B%5D=Anime&search=${encodeURIComponent(
-    query
-  )}`;
+  const url = `${CATALOGUE_URL}/?type%5B%5D=Anime&search=${encodeURIComponent(query)}`;
   const res = await axios.get(url);
   const $ = cheerio.load(res.data);
-  const results = {};
+  const results = [];
 
   $("a.flex.divide-x").each((i, el) => {
     if (i >= limit) return false;
 
-    const link = $(el).attr("href");
-    console.log(link);
-    const title = $(el).find("h1").first().text().trim();
+    const anchor = $(el);
+    const link = anchor.attr("href");
+    const title = anchor.find("h1").first().text().trim();
+    const altRaw = anchor.find("p.text-xs.opacity-40.italic").first().text().trim();
+    const cover = anchor.find("img").first().attr("src");
+
+    const altTitles = altRaw
+      ? altRaw.split(",").map((t) => t.trim()).filter(Boolean)
+      : [];
+
+    const genreRaw = anchor.find("p.text-xs.font-medium.text-gray-300").first().text().trim();
+    const genres = genreRaw
+      ? genreRaw.split(",").map((g) => g.trim()).filter(Boolean)
+      : [];
 
     if (title && link) {
-      results[title] = link.startsWith("http")
-        ? link
-        : `${CATALOGUE_URL}${link}`;
+      results.push({
+        title,
+        altTitles,
+        genres,
+        url: link.startsWith("http") ? link : `${CATALOGUE_URL}${link}`,
+        cover,
+      });
     }
   });
 
