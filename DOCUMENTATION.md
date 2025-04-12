@@ -14,7 +14,7 @@ A set of utility functions for scraping anime data from multiple sources (only [
 - [getAllAnime](#getallanimesource-output--anime_listjson-get_seasons--false)
 - [getLatestEpisodes](#getlatestepisodessource-languagefilter--null)
 - [getRandomAnime](#getrandomanimesource)
-- [getVideoUrlFromEmbed]()
+- [getVideoUrlFromEmbed](#getvideourlfromembedsource-embedurl)
 
 
 ### `searchAnime(source, query, limit = 10)`
