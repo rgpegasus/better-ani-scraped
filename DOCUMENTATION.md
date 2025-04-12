@@ -104,14 +104,23 @@ Extracts basic information from an anime page.
 
 ---
 
-### `getAvailableLanguages(animeUrl, wantedLanguages)`
-Checks which languages are available for a given anime.
+### `getAvailableLanguages(seasonUrl, wantedLanguages = ["vostfr", "vf", "va", "vkr", "vcn", "vqc"])`
+Checks which languages are available for a given anime season (not recommended to use the default value of wantedLanguages, the more languages there is the more the function is long to run, only checks for languages you want).
 
 - **Parameters:**
-  - `animeUrl` *(string)*: The base anime URL.
-  - `wantedLanguages` *(string[])*: Language codes to check (e.g., ["vf", "va"]).
+  - `seasonUrl` *(string)*: The season anime URL.
+  - `wantedLanguages` *(string[])*: Language codes to check (e.g., ["vostfr", "vf", "va", ...]).
 - **Returns:**  
-  Array of available language codes in uppercase.
+  Array of objects containing available languages and their episode count:
+  ```js
+  [
+    {
+      language: string,
+      episodeCount: int
+    }
+    ...
+  ]
+  ```
 
 ---
 

@@ -7,7 +7,7 @@ const main = async () => {
   const animeInfo = await scraper.getAnimeInfo(animeUrl);
   console.log(animeInfo);
 
-  const animeLanguages = await scraper.getAvailableLanguages(animeUrl, ["vf"]);
+  const animeLanguages = await scraper.getAvailableLanguages(`${animeUrl}/saison1/vostfr`, ["vostfr", "vf"]);
   console.log(animeLanguages);
 };
 

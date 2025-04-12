@@ -88,8 +88,10 @@ export async function getSeasons(animeUrl, language = "vostfr") {
   for (let script of scriptTags) {
     const content = $(script).html();
 
-    // Remove anything inside comments (/* ... */)
-    const uncommentedContent = content.replace(/\/\*[\s\S]*?\*\//g, "");
+    // Remove anything inside comments either ("/* */" or "//")
+    const uncommentedContent = content
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\/\/.*$/gm, "");
 
     const matches = [
       ...uncommentedContent.matchAll(/panneauAnime\("([^"]+)", "([^"]+)"\);/g),
@@ -201,21 +203,21 @@ export async function getAnimeInfo(animeUrl) {
 }
 
 export async function getAvailableLanguages(
-  animeUrl,
-  wantedLanguages = ["vf", "va", "vkr", "vcn", "vqc"]
+  seasonUrl,
+  wantedLanguages = ["vostfr", "vf", "va", "vkr", "vcn", "vqc"]
 ) {
-  const languageLinks = ["VOSTFR"];
+  const languageLinks = [];
 
   // Iterate over each possible language and check if the page exists
   for (let language of wantedLanguages) {
-    const seasonUrl = Object.values(await getSeasons(animeUrl))[0].url;
     const languageUrl = seasonUrl.replace("vostfr", `${language}`);
     try {
       const res = await axios.get(languageUrl, {
         headers: getHeaders(CATALOGUE_URL),
       });
       if (res.status === 200) {
-        languageLinks.push(language.toUpperCase());
+        const episodeCount = (await getEmbed(languageUrl)).length;
+        languageLinks.push({ language: language.toUpperCase(), episodeCount: episodeCount });
       }
     } catch (error) {
       // If an error occurs (like a 404), we skip that language
@@ -372,7 +374,7 @@ export async function getRandomAnime() {
       .first()
       .text()
       .trim();
-      
+
     const genres = genreRaw
       ? genreRaw
           .split(",")
