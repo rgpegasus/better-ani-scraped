@@ -1,6 +1,6 @@
 # Ani-Scraped Documentation
 
-A set of utility functions for scraping anime data from multiple sources (only [anime-sama.fr](https://anime-sama.fr) available at the moment). This tool allows you to search for anime, retrieve information, get episodes, and more.
+A set of utility functions for scraping anime data from multiple sources (only [anime-sama](https://anime-sama.fr) and [animepahe](https://animepahe.ru) available at the moment). This tool allows you to search for anime, retrieve information, get episodes, and more.
 
 ---
 

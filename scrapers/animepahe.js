@@ -19,7 +19,7 @@ export async function searchAnime(query) {
       const { poster, ...rest } = anime;  // Destructure 'poster' and keep the rest of the properties
       return {
         ...rest,
-        cover: poster,  // Add 'cover'
+        cover: poster,
         url: `https://animepahe.ru/anime/${anime.session}`
       };
     });
