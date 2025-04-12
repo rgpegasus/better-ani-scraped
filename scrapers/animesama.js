@@ -26,7 +26,7 @@ export async function searchAnime(query, limit = 10) {
 
     const anchor = $(el);
     const link = anchor.attr("href");
-    const name = anchor.find("h1").first().text().trim();
+    const title = anchor.find("h1").first().text().trim();
     const altRaw = anchor
       .find("p.text-xs.opacity-40.italic")
       .first()
@@ -53,9 +53,9 @@ export async function searchAnime(query, limit = 10) {
           .filter(Boolean)
       : [];
 
-    if (name && link) {
+    if (title && link) {
       results.push({
-        name,
+        title,
         altTitles,
         genres,
         url: link.startsWith("http") ? link : `${CATALOGUE_URL}${link}`,
