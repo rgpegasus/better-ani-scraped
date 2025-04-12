@@ -94,6 +94,8 @@ Extracts basic information from an anime page.
   An object containing:
   ```js
   {
+    title: string,
+    altTitles: string[],
     cover: string,
     genres: string[],
     synopsis: string

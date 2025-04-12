@@ -7,9 +7,9 @@ const CATALOGUE_URL = `${BASE_URL}/catalogue`;
 
 function getHeaders(referer = BASE_URL) {
   return {
-    'User-Agent': 'Mozilla/5.0',
-    'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
-    'Referer': referer,
+    "User-Agent": "Mozilla/5.0",
+    "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
+    Referer: referer,
   };
 }
 
@@ -101,7 +101,9 @@ export async function getSeasons(animeUrl, language = "vostfr") {
       const fullUrl = `${CATALOGUE_URL}/${animeName}/${href}/${language}`;
 
       try {
-        const check = await axios.head(fullUrl, { headers: getHeaders(animeUrl) });
+        const check = await axios.head(fullUrl, {
+          headers: getHeaders(animeUrl),
+        });
         if (check.status === 200) {
           languageAvailable = true;
           seasons.push({ title, url: fullUrl });
@@ -120,7 +122,9 @@ export async function getSeasons(animeUrl, language = "vostfr") {
 }
 
 export async function getEmbed(animeUrl, hostPriority = ["sibnet", "vidmoly"]) {
-  const res = await axios.get(animeUrl, { headers: getHeaders(animeUrl.split('/').slice(0, 5).join('/')) });
+  const res = await axios.get(animeUrl, {
+    headers: getHeaders(animeUrl.split("/").slice(0, 5).join("/")),
+  });
   const $ = cheerio.load(res.data);
 
   // Find the script that contains episode URLs
@@ -131,7 +135,9 @@ export async function getEmbed(animeUrl, hostPriority = ["sibnet", "vidmoly"]) {
     ? animeUrl + scriptTag
     : animeUrl + "/" + scriptTag;
 
-  const episodesJs = await axios.get(scriptUrl, { headers: getHeaders(animeUrl) }).then((r) => r.data);
+  const episodesJs = await axios
+    .get(scriptUrl, { headers: getHeaders(animeUrl) })
+    .then((r) => r.data);
 
   // Match all "var epsX = [ ... ]" arrays
   const matches = [
@@ -167,6 +173,14 @@ export async function getAnimeInfo(animeUrl) {
   const $ = cheerio.load(res.data);
 
   const cover = $("#coverOeuvre").attr("src");
+  const title = $("#titreOeuvre").text();
+  const altRaw = $("#titreAlter").text();
+  const altTitles = altRaw
+    ? altRaw
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean)
+    : [];
 
   const genres = $("h2:contains('Genres')")
     .next("a")
@@ -178,13 +192,18 @@ export async function getAnimeInfo(animeUrl) {
   const synopsis = $("h2:contains('Synopsis')").next("p").text().trim();
 
   return {
+    title,
+    altTitles,
     cover,
     genres,
     synopsis,
   };
 }
 
-export async function getAvailableLanguages(animeUrl, wantedLanguages = ["vf", "va", "vkr", "vcn", "vqc"]) {
+export async function getAvailableLanguages(
+  animeUrl,
+  wantedLanguages = ["vf", "va", "vkr", "vcn", "vqc"]
+) {
   const languageLinks = ["VOSTFR"];
 
   // Iterate over each possible language and check if the page exists
@@ -192,7 +211,9 @@ export async function getAvailableLanguages(animeUrl, wantedLanguages = ["vf", "
     const seasonUrl = Object.values(await getSeasons(animeUrl))[0].url;
     const languageUrl = seasonUrl.replace("vostfr", `${language}`);
     try {
-      const res = await axios.get(languageUrl, { headers: getHeaders(CATALOGUE_URL) });
+      const res = await axios.get(languageUrl, {
+        headers: getHeaders(CATALOGUE_URL),
+      });
       if (res.status === 200) {
         languageLinks.push(language.toUpperCase());
       }
@@ -323,7 +344,8 @@ export async function getLatestEpisodes(languageFilter = null) {
 export async function getRandomAnime() {
   try {
     const res = await axios.get(
-      `${CATALOGUE_URL}/?type[]=Anime&search=&random=1`, { headers: getHeaders(CATALOGUE_URL) }
+      `${CATALOGUE_URL}/?type[]=Anime&search=&random=1`,
+      { headers: getHeaders(CATALOGUE_URL) }
     );
     const $ = cheerio.load(res.data);
 
@@ -350,6 +372,7 @@ export async function getRandomAnime() {
       .first()
       .text()
       .trim();
+      
     const genres = genreRaw
       ? genreRaw
           .split(",")
