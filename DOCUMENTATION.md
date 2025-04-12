@@ -6,6 +6,17 @@ A set of utility functions for scraping anime data from multiple sources (only [
 
 ## Functions
 
+- [searchAnime](#searchanimesource-query-limit--10)
+- [getSeasons](#getseasonssource-animeurl-language--vostfr)
+- [getEmbed](#getembedsource-animeurl-hostpriority--sibnet-vidmoly)
+- [getAnimeInfo](#getanimeinfosource-animeurl)
+- [getAvailableLanguages](#getavailablelanguagessource-animeurl-wantedlanguages)
+- [getAllAnime](#getallanimesource-output--anime_listjson-get_seasons--false)
+- [getLatestEpisodes](#getlatestepisodessource-languagefilter--null)
+- [getRandomAnime](#getrandomanimesource)
+- [getVideoUrlFromEmbed]()
+
+
 ### `searchAnime(source, query, limit = 10)`
 Searches for anime titles that match the given query.
 
@@ -15,14 +26,17 @@ Searches for anime titles that match the given query.
   - `limit` *(number)*: Maximum number of results to return (default: 10).
 - **Returns:**  
   An array of anime objects:
-  ```js
-  {
-    name: string,
-    altTitles: string[],
-    genres: string[],
-    url: string,
-    cover: string
-  }
+  ```js<
+  [
+    {
+      name: string,
+      altTitles: string[],
+      genres: string[],
+      url: string,
+      cover: string
+    },
+    ...
+  ]
   ```
 
 ---
@@ -37,7 +51,13 @@ Fetches all available seasons of an anime in the specified language.
 - **Returns:**  
   Either an array of season objects:
   ```js
-  { name: string, url: string }
+  [
+    { 
+      name: string, 
+      url: string 
+    },
+    ...
+  ]
   ```
   Or an error object if the language is not available.
 
@@ -91,7 +111,7 @@ Fetches the full anime catalog, optionally including season information.
 - **Parameters:**
   - `source` *(string)*: The scraping source (only "animesama" available at the moment)
   - `output` *(string)*: File name to save the result as JSON.
-  - `get_seasons` *(boolean)*: If `true`, also fetches seasons for each anime (⚠️ slow).
+  - `get_seasons` *(boolean)*: If `true`, also fetches seasons for each anime (very slow, ETA is still unknown).
 - **Returns:**  
   `true` if successful, `false` otherwise.
 
@@ -133,6 +153,17 @@ Fetches a random anime from the catalogue.
     cover: string
   }
   ```
+
+---
+
+### `getVideoUrlFromEmbed(source, embedUrl)`
+Retrieves the video URL of the source's embed.
+
+- **Parameters:**
+  - `source` *(string)*: The embed source (only "sibnet" available at the moment)
+  - `embedUrl` *(string)*: The embed url of the given source.
+- **Returns:**  
+  A video URL as a string.
 
 ---
 

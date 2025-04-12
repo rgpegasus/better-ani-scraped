@@ -5,11 +5,19 @@ import fs from "fs";
 const BASE_URL = "https://anime-sama.fr";
 const CATALOGUE_URL = `${BASE_URL}/catalogue`;
 
+function getHeaders(referer = BASE_URL) {
+  return {
+    'User-Agent': 'Mozilla/5.0',
+    'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
+    'Referer': referer,
+  };
+}
+
 export async function searchAnime(query, limit = 10) {
   const url = `${CATALOGUE_URL}/?type%5B%5D=Anime&search=${encodeURIComponent(
     query
   )}`;
-  const res = await axios.get(url);
+  const res = await axios.get(url, { headers: getHeaders(CATALOGUE_URL) });
   const $ = cheerio.load(res.data);
   const results = [];
 
@@ -60,7 +68,7 @@ export async function searchAnime(query, limit = 10) {
 }
 
 export async function getSeasons(animeUrl, language = "vostfr") {
-  const res = await axios.get(animeUrl);
+  const res = await axios.get(animeUrl, { headers: getHeaders(CATALOGUE_URL) });
   const html = res.data;
 
   // Only keep the part before the Kai section
@@ -93,7 +101,7 @@ export async function getSeasons(animeUrl, language = "vostfr") {
       const fullUrl = `${CATALOGUE_URL}/${animeName}/${href}/${language}`;
 
       try {
-        const check = await axios.head(fullUrl);
+        const check = await axios.head(fullUrl, { headers: getHeaders(animeUrl) });
         if (check.status === 200) {
           languageAvailable = true;
           seasons.push({ name, url: fullUrl });
@@ -112,7 +120,7 @@ export async function getSeasons(animeUrl, language = "vostfr") {
 }
 
 export async function getEmbed(animeUrl, hostPriority = ["sibnet", "vidmoly"]) {
-  const res = await axios.get(animeUrl);
+  const res = await axios.get(animeUrl, { headers: getHeaders(animeUrl.split('/').slice(0, 5).join('/')) });
   const $ = cheerio.load(res.data);
 
   // Find the script that contains episode URLs
@@ -123,7 +131,7 @@ export async function getEmbed(animeUrl, hostPriority = ["sibnet", "vidmoly"]) {
     ? animeUrl + scriptTag
     : animeUrl + "/" + scriptTag;
 
-  const episodesJs = await axios.get(scriptUrl).then((r) => r.data);
+  const episodesJs = await axios.get(scriptUrl, { headers: getHeaders(animeUrl) }).then((r) => r.data);
 
   // Match all "var epsX = [ ... ]" arrays
   const matches = [
@@ -155,7 +163,7 @@ export async function getEmbed(animeUrl, hostPriority = ["sibnet", "vidmoly"]) {
 }
 
 export async function getAnimeInfo(animeUrl) {
-  const res = await axios.get(animeUrl);
+  const res = await axios.get(animeUrl, { headers: getHeaders(CATALOGUE_URL) });
   const $ = cheerio.load(res.data);
 
   const cover = $("#coverOeuvre").attr("src");
@@ -184,7 +192,7 @@ export async function getAvailableLanguages(animeUrl, wantedLanguages = ["vf", "
     const seasonUrl = Object.values(await getSeasons(animeUrl))[0].url;
     const languageUrl = seasonUrl.replace("vostfr", `${language}`);
     try {
-      const res = await axios.get(languageUrl);
+      const res = await axios.get(languageUrl, { headers: getHeaders(CATALOGUE_URL) });
       if (res.status === 200) {
         languageLinks.push(language.toUpperCase());
       }
@@ -208,7 +216,7 @@ export async function getAllAnime(
   try {
     while (true) {
       const url = page === 1 ? CATALOGUE_URL : `${CATALOGUE_URL}?page=${page}`;
-      const res = await axios.get(url);
+      const res = await axios.get(url, { headers: getHeaders(CATALOGUE_URL) });
       const $ = cheerio.load(res.data);
 
       const containers = $("div.shrink-0.m-3.rounded.border-2");
@@ -265,14 +273,14 @@ export async function getAllAnime(
     fs.writeFileSync(output, JSON.stringify(uniqueLinks, null, 2), "utf-8");
     return true;
   } catch (err) {
-    console.error("❌ Error occurred:", err.message);
+    console.error("Error occurred:", err.message);
     return false;
   }
 }
 
 export async function getLatestEpisodes(languageFilter = null) {
   try {
-    const res = await axios.get(BASE_URL);
+    const res = await axios.get(BASE_URL, { headers: getHeaders() });
     const $ = cheerio.load(res.data);
 
     const container = $("#containerAjoutsAnimes");
@@ -307,7 +315,7 @@ export async function getLatestEpisodes(languageFilter = null) {
 
     return episodes;
   } catch (err) {
-    console.error("❌ Failed to fetch today episodes:", err.message);
+    console.error("Failed to fetch today episodes:", err.message);
     return [];
   }
 }
@@ -315,7 +323,7 @@ export async function getLatestEpisodes(languageFilter = null) {
 export async function getRandomAnime() {
   try {
     const res = await axios.get(
-      `${CATALOGUE_URL}/?type[]=Anime&search=&random=1`
+      `${CATALOGUE_URL}/?type[]=Anime&search=&random=1`, { headers: getHeaders(CATALOGUE_URL) }
     );
     const $ = cheerio.load(res.data);
 
@@ -361,7 +369,7 @@ export async function getRandomAnime() {
       throw new Error("No anime found in random response.");
     }
   } catch (err) {
-    console.error("❌ Failed to fetch random anime:", err.message);
+    console.error("Failed to fetch random anime:", err.message);
     return null;
   }
 }

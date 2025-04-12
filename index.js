@@ -9,6 +9,8 @@ import {
   getRandomAnime,
 } from "./scrapers/dispatcher.js";
 
+import { getVideoUrlFromEmbed } from "./utils/dispatcher.js";
+
 export {
   searchAnime,
   getSeasons,
@@ -18,4 +20,5 @@ export {
   getAllAnime,
   getLatestEpisodes,
   getRandomAnime,
+  getVideoUrlFromEmbed,
 };
