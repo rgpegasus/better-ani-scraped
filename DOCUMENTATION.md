@@ -139,7 +139,7 @@ Fetches the full anime catalog, optionally including season information.
 Scrapes the latest released episodes, optionally filtered by language.
 
 - **Parameters:**
-  - `languageFilter` *(string|null)*: If set, filters episodes by language.
+  - `languageFilter` *(string[]|null)*: If set, filters episodes by language in the array. If null, returns all episodes. 
 - **Returns:**  
   Array of episode objects:
   ```js

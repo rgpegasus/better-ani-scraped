@@ -324,7 +324,7 @@ export async function getLatestEpisodes(languageFilter = null) {
         cover &&
         language &&
         episode &&
-        (languageFilter === null || language === languageFilter.toLowerCase())
+        (languageFilter === null || languageFilter.map(l => l.toLowerCase()).includes(language.toLowerCase()))
       ) {
         episodes.push({
           title: title,
