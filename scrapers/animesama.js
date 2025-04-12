@@ -96,7 +96,7 @@ export async function getSeasons(animeUrl, language = "vostfr") {
     ];
 
     for (let match of matches) {
-      const name = match[1];
+      const title = match[1];
       const href = match[2].split("/")[0];
       const fullUrl = `${CATALOGUE_URL}/${animeName}/${href}/${language}`;
 
@@ -104,7 +104,7 @@ export async function getSeasons(animeUrl, language = "vostfr") {
         const check = await axios.head(fullUrl, { headers: getHeaders(animeUrl) });
         if (check.status === 200) {
           languageAvailable = true;
-          seasons.push({ name, url: fullUrl });
+          seasons.push({ title, url: fullUrl });
         }
       } catch (err) {
         // Ignore missing URLs
@@ -239,7 +239,7 @@ export async function getAllAnime(
 
         if (title && link && tagText.includes("Anime")) {
           const fullUrl = link.startsWith("http") ? link : `${BASE_URL}${link}`;
-          animeLinks.push({ name: title, url: fullUrl });
+          animeLinks.push({ title: title, url: fullUrl });
         }
       });
 
@@ -304,7 +304,7 @@ export async function getLatestEpisodes(languageFilter = null) {
         (languageFilter === null || language === languageFilter.toLowerCase())
       ) {
         episodes.push({
-          name: title,
+          title: title,
           url: link,
           cover,
           language,
@@ -330,7 +330,7 @@ export async function getRandomAnime() {
     const container = $("div.shrink-0.m-3.rounded.border-2").first();
     const anchor = container.find("a");
     const link = anchor.attr("href");
-    const name = anchor.find("h1").first().text().trim();
+    const title = anchor.find("h1").first().text().trim();
     const altRaw = anchor
       .find("p.text-xs.opacity-40.italic")
       .first()
@@ -357,9 +357,9 @@ export async function getRandomAnime() {
           .filter(Boolean)
       : [];
 
-    if (name && link) {
+    if (title && link) {
       return {
-        name,
+        title,
         altTitles,
         genres,
         url: link.startsWith("http") ? link : `${CATALOGUE_URL}${link}`,

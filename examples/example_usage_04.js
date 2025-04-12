@@ -1,10 +1,12 @@
-import { getLatestEpisodes, getRandomAnime } from "../index.js"; // REPLACE BY "from 'ani-scraped';"
+import { AnimeScraper } from "../index.js"; // REPLACE BY "from 'ani-scraped';"
 
 const main = async () => {
-  const new_episodes = await getLatestEpisodes("animesama", "vostfr");
+  const scraper = new AnimeScraper('animesama');
+
+  const new_episodes = await scraper.getLatestEpisodes("vostfr");
   console.log(new_episodes);
 
-  const random_episode = await getRandomAnime("animesama");
+  const random_episode = await scraper.getRandomAnime();
   console.log(random_episode);
 };
 

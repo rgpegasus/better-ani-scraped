@@ -1,11 +1,13 @@
-import { getAnimeInfo, getAvailableLanguages } from "../index.js"; // REPLACE BY "from 'ani-scraped';"
+import { AnimeScraper } from "../index.js"; // REPLACE BY "from 'ani-scraped';"
 
 const main = async () => {
+  const scraper = new AnimeScraper('animesama');
+
   const animeUrl = "https://anime-sama.fr/catalogue/sword-art-online";
-  const animeInfo = await getAnimeInfo("animesama", animeUrl);
+  const animeInfo = await scraper.getAnimeInfo(animeUrl);
   console.log(animeInfo);
 
-  const animeLanguages = await getAvailableLanguages("animesama", animeUrl, ["vf"]);
+  const animeLanguages = await scraper.getAvailableLanguages(animeUrl, ["vf"]);
   console.log(animeLanguages);
 };
 

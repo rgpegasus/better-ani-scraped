@@ -1,24 +1,7 @@
-import {
-  searchAnime,
-  getSeasons,
-  getEmbed,
-  getAnimeInfo,
-  getAvailableLanguages,
-  getAllAnime,
-  getLatestEpisodes,
-  getRandomAnime,
-} from "./scrapers/dispatcher.js";
-
 import { getVideoUrlFromEmbed } from "./utils/dispatcher.js";
+import { AnimeScraper } from "./scrapers/scrapers.js";
 
 export {
-  searchAnime,
-  getSeasons,
-  getEmbed,
-  getAnimeInfo,
-  getAvailableLanguages,
-  getAllAnime,
-  getLatestEpisodes,
-  getRandomAnime,
+  AnimeScraper,
   getVideoUrlFromEmbed,
 };

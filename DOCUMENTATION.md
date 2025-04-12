@@ -4,32 +4,44 @@ A set of utility functions for scraping anime data from multiple sources (only [
 
 ---
 
-## Functions
+## Summary
+- [Main class](#main-class)
+- [`AnimeScrapper("animesama")` methods](#animescrapperanimesama-methods)
+- [`AnimeScrapper("animepahe")` methods](#animescrapperanimepahe-methods)
+- [Functions](#functions)
 
-- [searchAnime](#searchanimesource-query-limit--10)
-- [getSeasons](#getseasonssource-animeurl-language--vostfr)
-- [getEmbed](#getembedsource-animeurl-hostpriority--sibnet-vidmoly)
-- [getAnimeInfo](#getanimeinfosource-animeurl)
-- [getAvailableLanguages](#getavailablelanguagessource-animeurl-wantedlanguages)
-- [getAllAnime](#getallanimesource-output--anime_listjson-get_seasons--false)
-- [getLatestEpisodes](#getlatestepisodessource-languagefilter--null)
-- [getRandomAnime](#getrandomanimesource)
-- [getVideoUrlFromEmbed](#getvideourlfromembedsource-embedurl)
+---
 
+## Main class
 
-### `searchAnime(source, query, limit = 10)`
+### `AnimeScraper(source)`
+Creates a scrapper for the given source (only "animesama" and "animepahe" available at the moment).
+
+---
+
+## `AnimeScrapper("animesama")` methods
+
+- [searchAnime](#searchanimequery-limit--10)
+- [getSeasons](#getseasonsanimeurl-language--vostfr)
+- [getEmbed](#getembedanimeurl-hostpriority--sibnet-vidmoly)
+- [getAnimeInfo](#getanimeinfoanimeurl)
+- [getAvailableLanguages](#getavailablelanguagesanimeurl-wantedlanguages)
+- [getAllAnime](#getallanimeoutput--anime_listjson-get_seasons--false)
+- [getLatestEpisodes](#getlatestepisodeslanguagefilter--null)
+- [getRandomAnime](#getrandomanime)
+
+### `searchAnime(query, limit = 10)`
 Searches for anime titles that match the given query.
 
 - **Parameters:**
-  - `source` *(string)*: The scraping source (only "animesama" available at the moment)
   - `query` *(string)*: The search keyword.
   - `limit` *(number)*: Maximum number of results to return (default: 10).
 - **Returns:**  
   An array of anime objects:
-  ```js<
+  ```js
   [
     {
-      name: string,
+      title: string,
       altTitles: string[],
       genres: string[],
       url: string,
@@ -41,11 +53,10 @@ Searches for anime titles that match the given query.
 
 ---
 
-### `getSeasons(source, animeUrl, language = "vostfr")`
+### `getSeasons(animeUrl, language = "vostfr")`
 Fetches all available seasons of an anime in the specified language.
 
 - **Parameters:**
-  - `source` *(string)*: The scraping source (only "animesama" available at the moment)
   - `animeUrl` *(string)*: The full URL of the anime.
   - `language` *(string)*: Language to filter by (default: "vostfr").
 - **Returns:**  
@@ -53,7 +64,7 @@ Fetches all available seasons of an anime in the specified language.
   ```js
   [
     { 
-      name: string, 
+      title: string, 
       url: string 
     },
     ...
@@ -63,11 +74,10 @@ Fetches all available seasons of an anime in the specified language.
 
 ---
 
-### `getEmbed(source, animeUrl, hostPriority = ["sibnet", "vidmoly"])`
+### `getEmbed(animeUrl, hostPriority = ["sibnet", "vidmoly"])`
 Retrieves embed URLs for episodes, prioritizing by host.
 
 - **Parameters:**
-  - `source` *(string)*: The scraping source (only "animesama" available at the moment)
   - `animeUrl` *(string)*: URL of the anime’s season/episode page.
   - `hostPriority` *(string[])*: Array of preferred hostnames.
 - **Returns:**  
@@ -75,11 +85,10 @@ Retrieves embed URLs for episodes, prioritizing by host.
 
 ---
 
-### `getAnimeInfo(source, animeUrl)`
+### `getAnimeInfo(animeUrl)`
 Extracts basic information from an anime page.
 
 - **Parameters:**
-  - `source` *(string)*: The scraping source (only "animesama" available at the moment)
   - `animeUrl` *(string)*: The URL of the anime.
 - **Returns:**  
   An object containing:
@@ -93,11 +102,10 @@ Extracts basic information from an anime page.
 
 ---
 
-### `getAvailableLanguages(source, animeUrl, wantedLanguages)`
+### `getAvailableLanguages(animeUrl, wantedLanguages)`
 Checks which languages are available for a given anime.
 
 - **Parameters:**
-  - `source` *(string)*: The scraping source (only "animesama" available at the moment)
   - `animeUrl` *(string)*: The base anime URL.
   - `wantedLanguages` *(string[])*: Language codes to check (e.g., ["vf", "va"]).
 - **Returns:**  
@@ -105,11 +113,10 @@ Checks which languages are available for a given anime.
 
 ---
 
-### `getAllAnime(source, output = "anime_list.json", get_seasons = false)`
+### `getAllAnime(output = "anime_list.json", get_seasons = false)`
 Fetches the full anime catalog, optionally including season information.
 
 - **Parameters:**
-  - `source` *(string)*: The scraping source (only "animesama" available at the moment)
   - `output` *(string)*: File name to save the result as JSON.
   - `get_seasons` *(boolean)*: If `true`, also fetches seasons for each anime (very slow, ETA is still unknown).
 - **Returns:**  
@@ -117,17 +124,16 @@ Fetches the full anime catalog, optionally including season information.
 
 ---
 
-### `getLatestEpisodes(source, languageFilter = null)`
+### `getLatestEpisodes(languageFilter = null)`
 Scrapes the latest released episodes, optionally filtered by language.
 
 - **Parameters:**
-  - `source` *(string)*: The scraping source (only "animesama" available at the moment)
   - `languageFilter` *(string|null)*: If set, filters episodes by language.
 - **Returns:**  
   Array of episode objects:
   ```js
   {
-    name: string,
+    title: string,
     url: string,
     cover: string,
     language: string,
@@ -137,16 +143,14 @@ Scrapes the latest released episodes, optionally filtered by language.
 
 ---
 
-### `getRandomAnime(source)`
+### `getRandomAnime()`
 Fetches a random anime from the catalogue.
 
-- **Parameters:**
-  - `source` *(string)*: The scraping source (only "animesama" available at the moment)
 - **Returns:**  
   An anime object:
   ```js
   {
-    name: string,
+    title: string,
     altTitles: string[],
     genres: string[],
     url: string,
@@ -155,6 +159,43 @@ Fetches a random anime from the catalogue.
   ```
 
 ---
+
+## `AnimeScrapper("animepahe")` methods
+
+- [searchAnime](#searchanimequery)
+
+
+### `searchAnime(query)`
+Searches for anime titles that match the given query.
+
+- **Parameters:**
+  - `query` *(string)*: The search keyword.
+- **Returns:**  
+  An array of anime objects:
+  ```js
+  [
+    {
+      id: int,
+      title: string,
+      type: string,
+      episodes: int,
+      status: string,
+      season: string,
+      year: int,
+      score: float,
+      session: string,
+      cover: string,
+      url: string
+    },
+    ...
+  ]
+  ```
+
+---
+
+## Functions
+
+- [getVideoUrlFromEmbed](#getvideourlfromembedsource-embedurl)
 
 ### `getVideoUrlFromEmbed(source, embedUrl)`
 Retrieves the video URL of the source's embed.
@@ -165,6 +206,9 @@ Retrieves the video URL of the source's embed.
 - **Returns:**  
   A video URL as a string.
 
+---
+---
+---
 ---
 
 > ⚠️ This project scrapes data from online sources. Use at your own risk.
