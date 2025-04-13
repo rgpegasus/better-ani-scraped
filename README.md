@@ -10,11 +10,12 @@ A set of utility functions for scraping anime data from multiple sources. This t
 <p>
 
 <p align="center">
-  <a href="#installation">Installation</a> | <a href="#example-usage">Example Usage</a> | <a href="#documentation">Documentation</a> | <a href="#license">License</a> | <a href="#usage-warning">Usage Warning</a>
+  <a href="#installation">Installation</a> | <a href="#example-usage">Example Usage</a> | <a href="#documentation">Documentation</a> | <a href="#license">License</a> | <a href="#legal-disclaimer">Legal Disclaimer</a>
 </p>
 
 
 ## Installation
+See [Legal Disclaimer](#legal-disclaimer).
 ```
 npm install ani-scraped@latest
 ```
@@ -28,8 +29,15 @@ Full API reference available in the [documentation](DOCUMENTATION.md) file.
 ## License
 This package is under the [MIT license](LICENSE).
 
-## Usage Warning
-By using this package, you acknowledge and agree that the author does not take responsibility for any legal or ethical consequences arising from the use of this package. It is your responsibility to ensure compliance with all applicable laws and terms of service.
+## Legal Disclaimer
+This package is intended for **educational purposes only**. Scraping content from websites such as Animesama and Animepahe may be a violation of their terms of service, intellectual property rights, or other applicable laws. By using this package, you acknowledge that you are solely responsible for ensuring that your use complies with all relevant laws and regulations, including but not limited to:
+- The Terms of Service of the websites being scraped
+- Copyright laws regarding the content on the websites
+- Any other applicable laws or regulations in your country or jurisdiction
+
+The author of this package assumes **no responsibility for any legal issues**, damages, or consequences arising from the use of this package.
+
+Please make sure you review the websites' terms of service and obtain permission from the website owners if necessary before using this package. If in doubt, consult with a legal professional regarding the legality of web scraping in your jurisdiction.
 
 ## TODO
 - Implement more animepahe methods

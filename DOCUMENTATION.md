@@ -25,7 +25,7 @@ Creates a scrapper for the given source (only "animesama" and "animepahe" availa
 - [getSeasons](#getseasonsanimeurl-language--vostfr)
 - [getEmbed](#getembedanimeurl-hostpriority--sibnet-vidmoly)
 - [getAnimeInfo](#getanimeinfoanimeurl)
-- [getAvailableLanguages](#getavailablelanguagesanimeurl-wantedlanguages)
+- [getAvailableLanguages](#getavailablelanguagesseasonurl-wantedlanguages--vostfr-vf-va-vkr-vcn-vqc)
 - [getAllAnime](#getallanimeoutput--anime_listjson-get_seasons--false)
 - [getLatestEpisodes](#getlatestepisodeslanguagefilter--null)
 - [getRandomAnime](#getrandomanime)
