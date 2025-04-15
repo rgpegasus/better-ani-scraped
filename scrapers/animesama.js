@@ -1,6 +1,7 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
 import fs from "fs";
+import puppeteer from'puppeteer';
 
 const BASE_URL = "https://anime-sama.fr";
 const CATALOGUE_URL = `${BASE_URL}/catalogue`;
@@ -123,51 +124,81 @@ export async function getSeasons(animeUrl, language = "vostfr") {
   return seasons;
 }
 
-export async function getEmbed(animeUrl, hostPriority = ["sibnet", "vidmoly"]) {
-  const res = await axios.get(animeUrl, {
-    headers: getHeaders(animeUrl.split("/").slice(0, 5).join("/")),
-  });
-  const $ = cheerio.load(res.data);
-
-  // Find the script that contains episode URLs
-  const scriptTag = $('script[src*="episodes.js"]').attr("src");
-  if (!scriptTag) throw new Error("No episodes script found");
-
-  const scriptUrl = animeUrl.endsWith("/")
-    ? animeUrl + scriptTag
-    : animeUrl + "/" + scriptTag;
-
-  const episodesJs = await axios
-    .get(scriptUrl, { headers: getHeaders(animeUrl) })
-    .then((r) => r.data);
-
-  // Match all "var epsX = [ ... ]" arrays
-  const matches = [
-    ...episodesJs.matchAll(/var\s+(eps\d+)\s*=\s*(\[[^\]]+\])/g),
-  ];
-  if (!matches.length) throw new Error("No episode arrays found");
-
-  let allEmbeds = [];
-
-  for (const [, , arrayString] of matches) {
+async function getEpisodeTitles(animeUrl) {
+    let browser;
     try {
-      const links = eval(arrayString); // we assume trusted source
-      allEmbeds.push(...links);
-    } catch (e) {
-      console.warn("Could not parse embed array:", e);
+        browser = await puppeteer.launch({
+            headless: true, 
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
+        const page = await browser.newPage();
+        await page.setRequestInterception(true);
+        page.on('request', (req) => {
+            const blocked = ['image', 'stylesheet', 'font', 'media'];
+            if (blocked.includes(req.resourceType())) {
+                req.abort();
+            } else {
+                req.continue();
+            }
+        });
+        await page.goto(animeUrl, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('#selectEpisodes');
+        // Récupération des titres d'épisodes
+        const titres = await page.$$eval('#selectEpisodes option', options =>
+            options.map(o => o.textContent.trim())
+        );
+        return titres;
+    } catch (error) {
+        console.error('Erreur dans la récupération des titres:', error);
+        return [];
+    } finally {
+        if (browser) await browser.close();  
     }
-  }
+}
 
-  // Sort embeds by host
-  for (const host of hostPriority) {
-    const filtered = allEmbeds.filter((url) => url.includes(host));
-    if (filtered.length) {
-      return filtered;
+export async function getEmbed(animeUrl, hostPriority = ["sibnet", "vidmoly"]) {
+    let res, episodesJs;
+    try {
+        res = await axios.get(animeUrl, {
+            headers: getHeaders(animeUrl.split("/").slice(0, 5).join("/")),
+        });
+
+        const $ = cheerio.load(res.data);
+        const scriptTag = $('script[src*="episodes.js"]').attr("src");
+
+        if (!scriptTag) throw new Error("No episodes script found");
+        const scriptUrl = animeUrl.endsWith("/") ? animeUrl + scriptTag : animeUrl + "/" + scriptTag;
+    
+        episodesJs = await axios.get(scriptUrl, { headers: getHeaders(animeUrl) }).then(r => r.data);
+
+        const match = episodesJs.match(/var\s+eps\d+\s*=\s*(\[[^\]]+\])/);
+        if (!match) throw new Error("No episode array found");
+
+        const arrayString = match[1];
+        let links = [];
+
+        try {
+            links = eval(arrayString); 
+        } catch (e) {
+            console.warn("Could not parse episode links array:", e);
+        }
+        const titles = await getEpisodeTitles(animeUrl);
+
+        const results = titles.slice(0, links.length).map((title, i) => ({
+            title,
+            url: [links[i]]
+        }));
+        for (const host of hostPriority) {
+            const filtered = results.filter(ep =>
+                ep.url.some(link => link.includes(host))
+            );
+            if (filtered.length) return filtered;
+        }
+        return results;
+    } catch (error) {
+        console.error('Erreur lors de la récupération des données d\'épisodes:', error);
+        return [];
     }
-  }
-
-  // If no preferred host is found, return whatever's left
-  return allEmbeds;
 }
 
 export async function getAnimeInfo(animeUrl) {
