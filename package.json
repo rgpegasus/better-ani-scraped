@@ -1,6 +1,6 @@
 {
   "name": "better-ani-scraped",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Scrape anime data from different sources (only anime-sama.fr for the moment)",
   "main": "index.js",
   "scripts": {
