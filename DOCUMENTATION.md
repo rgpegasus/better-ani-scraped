@@ -29,6 +29,7 @@ Creates a scrapper for the given source (only "animesama" and "animepahe" availa
 - [getAllAnime](#getallanimeoutput--anime_listjson-get_seasons--false)
 - [getLatestEpisodes](#getlatestepisodeslanguagefilter--null)
 - [getRandomAnime](#getrandomanime)
+- [getEpisodeTitles](#episodetitle)
 
 ### `searchAnime(query, limit = 10)`
 Searches for anime titles that match the given query.
@@ -81,8 +82,13 @@ Retrieves embed URLs for episodes, prioritizing by host.
   - `animeUrl` *(string)*: URL of the anime’s season/episode page.
   - `hostPriority` *(string[])*: Array of preferred hostnames.
 - **Returns:**  
-  An array of embed video URLs.
-
+  An array of embed video:
+  ```js
+  {
+    title: string,
+    url: string,
+  }
+  ```
 ---
 
 ### `getAnimeInfo(animeUrl)`
@@ -168,6 +174,15 @@ Fetches a random anime from the catalogue.
     cover: string
   }
   ```
+
+---
+### `getgetEpisodeTitles(AnimeUrl)`
+Fetches the names of all episodes in a season
+
+- **Parameters:**
+  - `animeUrl` *(string)*: URL of the anime’s season/episode page.
+- **Returns:**  
+  An array of episode titles.
 
 ---
 
