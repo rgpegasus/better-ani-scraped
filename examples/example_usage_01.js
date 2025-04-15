@@ -1,4 +1,4 @@
-import { AnimeScraper, getVideoUrlFromEmbed } from "../index.js"; // REPLACE BY "from 'ani-scraped';"
+import { AnimeScraper, getVideoUrlFromEmbed } from "../index.js"; // REPLACE BY "from 'better-ani-scraped';"
 
 const main = async () => {
   const scraper = new AnimeScraper('animesama');

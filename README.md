@@ -1,5 +1,5 @@
 <h1 align="center">
-Ani-Scraped
+Better-Ani-Scraped
 </h1>
 <p align="center">
 A set of utility functions for scraping anime data from multiple sources. This tool allows you to search for anime, retrieve information, get episodes, and more.
@@ -17,11 +17,11 @@ A set of utility functions for scraping anime data from multiple sources. This t
 ## Installation
 See [Legal Disclaimer](#legal-disclaimer).
 ```
-npm install ani-scraped@latest
+npm install better-ani-scraped@latest
 ```
 
 ## Example Usage
-View files in the [examples](https://github.com/hxpe-dev/ani-scraped/tree/main/examples) folder.
+View files in the [examples](https://github.com/rgpegasus/better-ani-scraped/tree/main/examples) folder.
 
 ## Documentation
 Full API reference available in the [documentation](DOCUMENTATION.md) file.
@@ -45,4 +45,4 @@ Please make sure you review the websites' terms of service and obtain permission
 
 
 ### Special thanks to
-- [RG Pegasus](https://github.com/rgpegasus)
+- [Hxpe Dev](https://github.com/hxpe_dev)

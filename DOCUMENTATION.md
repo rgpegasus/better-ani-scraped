@@ -29,7 +29,7 @@ Creates a scrapper for the given source (only "animesama" and "animepahe" availa
 - [getAllAnime](#getallanimeoutput--anime_listjson-get_seasons--false)
 - [getLatestEpisodes](#getlatestepisodeslanguagefilter--null)
 - [getRandomAnime](#getrandomanime)
-- [getEpisodeTitles](#episodetitle)
+- [getEpisodeTitles](#getepisodetitlesanimeurl)
 
 ### `searchAnime(query, limit = 10)`
 Searches for anime titles that match the given query.
@@ -176,7 +176,8 @@ Fetches a random anime from the catalogue.
   ```
 
 ---
-### `getgetEpisodeTitles(AnimeUrl)`
+
+### `getEpisodeTitles(AnimeUrl)`
 Fetches the names of all episodes in a season
 
 - **Parameters:**

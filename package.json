@@ -1,6 +1,6 @@
 {
-  "name": "ani-scraped",
-  "version": "1.2.7",
+  "name": "better-ani-scraped",
+  "version": "1.0.0",
   "description": "Scrape anime data from different sources (only anime-sama.fr for the moment)",
   "main": "index.js",
   "scripts": {
@@ -10,9 +10,10 @@
     "anime",
     "scraper",
     "anime-sama",
-    "ani-scraped"
+    "ani-scraped",
+    "better-ani-scraped"
   ],
-  "author": "hxpe",
+  "author": "rgpegasus",
   "license": "MIT",
   "type": "module",
   "dependencies": {
@@ -22,6 +23,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/hxpe-dev/ani-scraped"
+    "url": "https://github.com/rgpegasus/better-ani-scraped"
   }
 }
