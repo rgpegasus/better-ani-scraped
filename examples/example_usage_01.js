@@ -16,7 +16,7 @@ const main = async () => {
   ]);
   console.log("Embed Links:", embeds);
 
-  const videoUrl = await getVideoUrlFromEmbed("sibnet", embeds[11])
+  const videoUrl = await getVideoUrlFromEmbed("sibnet", embeds[11].url)
   console.log("Video URL:", videoUrl);
 };
 

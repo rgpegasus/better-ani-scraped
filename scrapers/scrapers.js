@@ -83,4 +83,13 @@ export class AnimeScraper {
       return null;
     }
   }
+
+  async getEpisodeTitles(animeUrl) {
+    try {
+      return await this.source.getEpisodeTitles(animeUrl);
+    } catch (error) {
+      console.error(`This scraper does not have the getRandomAnime function implemented or an error happened -> ${error}`);
+      return null;
+    }
+  }
 }
