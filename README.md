@@ -5,8 +5,6 @@ Better-Ani-Scraped
 A set of utility functions for scraping anime data from multiple sources. This tool allows you to search for anime, retrieve information, get episodes, and more.
 <p>
 <p align="center">
-  <a href="https://www.npmjs.com/package/ani-scraped"><img src="https://img.shields.io/npm/v/ani-scraped"></a>
-  <a href="https://www.npmjs.com/package/ani-scraped"><img src="https://img.shields.io/npm/dw/ani-scraped"></a>
 <p>
 
 <p align="center">
