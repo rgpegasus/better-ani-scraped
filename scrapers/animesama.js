@@ -178,33 +178,44 @@ export async function getEmbed(animeUrl, hostPriority = ["vidmoly"]) {
   ];
   if (!matches.length) throw new Error("No episode arrays found");
 
-  let allEmbeds = [];
-
+  // Parse les arrays et crée une matrice [epsX][index]
+  let episodeMatrix = [];
   for (const [, , arrayString] of matches) {
     try {
-      const links = eval(arrayString); 
-      allEmbeds.push(...links);
+      const links = eval(arrayString);
+      episodeMatrix.push(links);
     } catch (e) {
       console.warn("Could not parse embed array:", e);
     }
   }
-  for (const host of hostPriority) {
-    const filtered = allEmbeds.filter((url) => url.includes(host));
-    if (filtered.length) {
-      const titles = await getEpisodeTitles(animeUrl);
-      return titles.slice(0, filtered.length).map((title, i) => ({
-        title,
-        url: filtered[i]
-      }));
+
+  // Déterminer le nombre total d'épisodes max (plus long des arrays)
+  const maxEpisodes = Math.max(...episodeMatrix.map(arr => arr.length));
+  const finalEmbeds = [];
+
+  // Parcours vertical
+  for (let i = 0; i < maxEpisodes; i++) {
+    let selectedUrl = null;
+
+    for (const host of hostPriority) {
+      for (const arr of episodeMatrix) {
+        if (i < arr.length && arr[i].includes(host)) {
+          selectedUrl = arr[i];
+          break;
+        }
+      }
+      if (selectedUrl) break;
     }
+
+    finalEmbeds.push(selectedUrl || null);
   }
+
   const titles = await getEpisodeTitles(animeUrl);
-  return titles.slice(0, allEmbeds.length).map((title, i) => ({
+  return titles.slice(0, finalEmbeds.length).map((title, i) => ({
     title,
-    url: allEmbeds[i]
+    url: finalEmbeds[i]
   }));
 }
-
 
 export async function getAnimeInfo(animeUrl) {
   const res = await axios.get(animeUrl, { headers: getHeaders(CATALOGUE_URL) });

@@ -3,7 +3,7 @@ import { AnimeScraper, getVideoUrlFromEmbed } from "../index.js"; // REPLACE BY 
 const main = async () => {
   const scraper = new AnimeScraper('animesama');
 
-  const search = await scraper.searchAnime("frieren");
+  const search = await scraper.searchAnime("86");
   console.log("Search Results:", search);
 
   const animeUrl = Object.values(search)[0].url;
@@ -16,7 +16,7 @@ const main = async () => {
   ]);
   console.log("Embed Links:", embeds);
 
-  const videoUrl = await getVideoUrlFromEmbed("sibnet", embeds[11].url)
+  const videoUrl = await getVideoUrlFromEmbed("sibnet", embeds[0].url)
   console.log("Video URL:", videoUrl);
 };
 
