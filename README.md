@@ -43,4 +43,4 @@ Please make sure you review the websites' terms of service and obtain permission
 
 
 ### Special thanks to
-- [Hxpe Dev](https://github.com/hxpe_dev)
+- [Hxpe Dev](https://github.com/hxpe-dev)

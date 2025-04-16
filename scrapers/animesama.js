@@ -194,14 +194,14 @@ export async function getEmbed(animeUrl, hostPriority = ["vidmoly"]) {
       const titles = await getEpisodeTitles(animeUrl);
       return titles.slice(0, filtered.length).map((title, i) => ({
         title,
-        url: [filtered[i]]
+        url: filtered[i]
       }));
     }
   }
   const titles = await getEpisodeTitles(animeUrl);
   return titles.slice(0, allEmbeds.length).map((title, i) => ({
     title,
-    url: [allEmbeds[i]]
+    url: allEmbeds[i]
   }));
 }
 
