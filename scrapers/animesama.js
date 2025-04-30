@@ -1,10 +1,9 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
 import fs from "fs";
-import puppeteer from'puppeteer';
 
 const BASE_URL = "https://anime-sama.fr";
-const CATALOGUE_URL = `${BASE_URL}/catalogue`;
+const CATALOGUE_URL = `${BASE_URL}/catalogue`; 
 
 function getHeaders(referer = BASE_URL) {
   return {
@@ -124,44 +123,84 @@ export async function getSeasons(animeUrl, language = "vostfr") {
   return seasons;
 }
 
-export async function getEpisodeTitles(animeUrl) {
-    let browser;
-    try {
-        browser = await puppeteer.launch({
-            headless: true, 
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
-        });
-        const page = await browser.newPage();
-        await page.setRequestInterception(true);
-        page.on('request', (req) => {
-            const blocked = ['image', 'stylesheet', 'font', 'media'];
-            if (blocked.includes(req.resourceType())) {
-                req.abort();
-            } else {
-                req.continue();
-            }
-        });
-        await page.goto(animeUrl, { waitUntil: 'domcontentloaded' });
-        await page.waitForSelector('#selectEpisodes');
-        // Récupération des titres d'épisodes
-        const titres = await page.$$eval('#selectEpisodes option', options =>
-            options.map(o => o.textContent.trim())
-        );
-        return titres;
-    } catch (error) {
-        console.error('Erreur dans la récupération des titres:', error);
-        return [];
-    } finally {
-        if (browser) await browser.close();  
+
+import path from 'path';
+import { exec as execCallback } from 'child_process';
+import { promisify } from 'util';
+const execAsync = promisify(execCallback);
+
+async function ensureChromiumInstalled(customPath) {
+  if (customPath) {
+    if (fs.existsSync(customPath)) {
+      console.log("customPath:", customPath);
+      return customPath;
+    } else {
+      console.log(`The custom path to Chromium is invalid : ${customPath}`);
     }
+  }
+  const basePath = path.join(
+    process.env.HOME || process.env.USERPROFILE,
+    '.cache',
+    'puppeteer',
+    'chrome'
+  );
+  const chromiumPath = path.join(basePath, 'win64-135.0.7049.95', 'chrome-win64', 'chrome.exe');
+
+  if (!fs.existsSync(chromiumPath)) {
+    console.log("📦 Downloading Chromium 135.0.7049.95...");
+    await execAsync('npx puppeteer browsers install chrome@135.0.7049.95');
+  }
+
+  return chromiumPath;
+}
+export async function getEpisodeTitles(animeUrl, customChromiumPath) {
+  let browser;
+  try {
+    const puppeteer = await import('puppeteer');
+    const executablePath = await ensureChromiumInstalled(customChromiumPath);
+
+    browser = await puppeteer.launch({
+      headless: true,
+      executablePath,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+
+    const page = await browser.newPage();
+
+    await page.setRequestInterception(true);
+    page.on('request', (req) => {
+      const blocked = ['image', 'stylesheet', 'font', 'media'];
+      if (blocked.includes(req.resourceType())) {
+        req.abort();
+      } else {
+        req.continue();
+      }
+    });
+
+    await page.goto(animeUrl, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('#selectEpisodes');
+
+    const titres = await page.$$eval('#selectEpisodes option', options =>
+      options.map(o => o.textContent.trim())
+    );
+
+    return titres;
+
+  } catch (error) {
+    console.error('Error while retrieving titles :', error);
+    return [];
+  } finally {
+    if (browser) await browser.close();
+  }
 }
 
-export async function getEmbed(animeUrl, hostPriority = ["vidmoly"]) {
+
+export async function getEmbed(animeUrl, hostPriority = ["vidmoly"], customChromiumPath) {
   const res = await axios.get(animeUrl, {
     headers: getHeaders(animeUrl.split("/").slice(0, 5).join("/")),
   });
-  const $ = cheerio.load(res.data);
 
+  const $ = cheerio.load(res.data);
   const scriptTag = $('script[src*="episodes.js"]').attr("src");
   if (!scriptTag) throw new Error("No episodes script found");
 
@@ -178,7 +217,6 @@ export async function getEmbed(animeUrl, hostPriority = ["vidmoly"]) {
   ];
   if (!matches.length) throw new Error("No episode arrays found");
 
-  // Parse les arrays et crée une matrice [epsX][index]
   let episodeMatrix = [];
   for (const [, , arrayString] of matches) {
     try {
@@ -189,14 +227,10 @@ export async function getEmbed(animeUrl, hostPriority = ["vidmoly"]) {
     }
   }
 
-  // Déterminer le nombre total d'épisodes max (plus long des arrays)
   const maxEpisodes = Math.max(...episodeMatrix.map(arr => arr.length));
   const finalEmbeds = [];
-
-  // Parcours vertical
   for (let i = 0; i < maxEpisodes; i++) {
     let selectedUrl = null;
-
     for (const host of hostPriority) {
       for (const arr of episodeMatrix) {
         if (i < arr.length && arr[i].includes(host)) {
@@ -206,16 +240,16 @@ export async function getEmbed(animeUrl, hostPriority = ["vidmoly"]) {
       }
       if (selectedUrl) break;
     }
-
     finalEmbeds.push(selectedUrl || null);
   }
 
-  const titles = await getEpisodeTitles(animeUrl);
-  return titles.slice(0, finalEmbeds.length).map((title, i) => ({
-    title,
-    url: finalEmbeds[i]
+  const titles = await getEpisodeTitles(animeUrl, customChromiumPath);
+  return finalEmbeds.map((url, i) => ({
+    title: titles[i] || "Untitled",
+    url,
   }));
 }
+
 
 export async function getAnimeInfo(animeUrl) {
   const res = await axios.get(animeUrl, { headers: getHeaders(CATALOGUE_URL) });

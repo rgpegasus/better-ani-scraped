@@ -1,5 +1,6 @@
 import * as animesama from "./animesama.js";
 import * as animepahe from "./animepahe.js";
+import * as crunchyroll from "./crunchyroll.js";
 
 export class AnimeScraper {
   constructor(source) {
@@ -7,8 +8,10 @@ export class AnimeScraper {
       this.source = animepahe;
     } else if (source === 'animesama') {
       this.source = animesama;
-    } else {
-      throw new Error('Invalid source. Choose either "animepahe" or "animesama".');
+    } else if (source === 'crunchyroll') {
+      this.source = crunchyroll;
+    }  else {
+      throw new Error('Invalid source. Choose either "animepahe", "crunchyroll" or "animesama".');
     }
   }
 
@@ -84,11 +87,19 @@ export class AnimeScraper {
     }
   }
 
-  async getEpisodeTitles(animeUrl) {
+  async getEpisodeTitles(animeUrl, ...rest) {
     try {
-      return await this.source.getEpisodeTitles(animeUrl);
+      return await this.source.getEpisodeTitles(animeUrl, ...rest);
     } catch (error) {
-      console.error(`This scraper does not have the getRandomAnime function implemented or an error happened -> ${error}`);
+      console.error(`This scraper does not have the getEpisodeTitles function implemented or an error happened -> ${error}`);
+      return null;
+    }
+  }
+  async getEpisodeInfo(animeUrl, ...rest) {
+    try {
+      return await this.source.getEpisodeInfo(animeUrl, ...rest);
+    } catch (error) {
+      console.error(`This scraper does not have the getEpisodeInfo function implemented or an error happened -> ${error}`);
       return null;
     }
   }

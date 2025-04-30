@@ -8,6 +8,7 @@ A set of utility functions for scraping anime data from multiple sources (only [
 - [Main class](#main-class)
 - [`AnimeScrapper("animesama")` methods](#animescrapperanimesama-methods)
 - [`AnimeScrapper("animepahe")` methods](#animescrapperanimepahe-methods)
+- [`AnimeScrapper("crunchyroll")` methods](#animescrappercrunchyroll-methods)
 - [Functions](#functions)
 
 ---
@@ -15,23 +16,23 @@ A set of utility functions for scraping anime data from multiple sources (only [
 ## Main class
 
 ### `AnimeScraper(source)`
-Creates a scrapper for the given source (only "animesama" and "animepahe" available at the moment).
+Creates a scrapper for the given source (only "animesama", "animepahe" and "crunchyroll" available at the moment).
 
 ---
 
 ## `AnimeScrapper("animesama")` methods
 
-- [searchAnime](#searchanimequery-limit--10)
-- [getSeasons](#getseasonsanimeurl-language--vostfr)
-- [getEmbed](#getembedanimeurl-hostpriority--sibnet-vidmoly)
-- [getAnimeInfo](#getanimeinfoanimeurl)
-- [getAvailableLanguages](#getavailablelanguagesseasonurl-wantedlanguages--vostfr-vf-va-vkr-vcn-vqc)
-- [getAllAnime](#getallanimeoutput--anime_listjson-get_seasons--false)
-- [getLatestEpisodes](#getlatestepisodeslanguagefilter--null)
-- [getRandomAnime](#getrandomanime)
-- [getEpisodeTitles](#getepisodetitlesanimeurl)
+- [searchAnime](#animesamasearchanimequery-limit--10)
+- [getSeasons](#animesamagetseasonsanimeurl-language--vostfr)
+- [getEmbed](#animesamagetembedanimeurl-hostpriority--sibnet-vidmoly)
+- [getAnimeInfo](#animesamagetanimeinfoanimeurl)
+- [getAvailableLanguages](#animesamagetavailablelanguagesseasonurl-wantedlanguages--vostfr-vf-va-vkr-vcn-vqc)
+- [getAllAnime](#animesamagetallanimeoutput--anime_listjson-get_seasons--false)
+- [getLatestEpisodes](#animesamagetlatestepisodeslanguagefilter--null)
+- [getRandomAnime](#animesamagetrandomanime)
+- [getEpisodeTitles](#animesamagetepisodetitlesanimeurl-customChromiumPath)
 
-### `searchAnime(query, limit = 10)`
+### `animesama.searchAnime(query, limit = 10)`
 Searches for anime titles that match the given query.
 
 - **Parameters:**
@@ -54,7 +55,7 @@ Searches for anime titles that match the given query.
 
 ---
 
-### `getSeasons(animeUrl, language = "vostfr")`
+### `animesama.getSeasons(animeUrl, language = "vostfr")`
 Fetches all available seasons of an anime in the specified language.
 
 - **Parameters:**
@@ -75,7 +76,7 @@ Fetches all available seasons of an anime in the specified language.
 
 ---
 
-### `getEmbed(animeUrl, hostPriority = ["sibnet", "vidmoly"])`
+### `animesama.getEmbed(animeUrl, hostPriority = ["sibnet", "vidmoly"])`
 Retrieves embed URLs for episodes, prioritizing by host.
 
 - **Parameters:**
@@ -91,7 +92,7 @@ Retrieves embed URLs for episodes, prioritizing by host.
   ```
 ---
 
-### `getAnimeInfo(animeUrl)`
+### `animesama.getAnimeInfo(animeUrl)`
 Extracts basic information from an anime page.
 
 - **Parameters:**
@@ -110,7 +111,7 @@ Extracts basic information from an anime page.
 
 ---
 
-### `getAvailableLanguages(seasonUrl, wantedLanguages = ["vostfr", "vf", "va", "vkr", "vcn", "vqc"])`
+### `animesama.getAvailableLanguages(seasonUrl, wantedLanguages = ["vostfr", "vf", "va", "vkr", "vcn", "vqc"])`
 Checks which languages are available for a given anime season (not recommended to use the default value of wantedLanguages, the more languages there is the more the function is long to run, only checks for languages you want).
 
 - **Parameters:**
@@ -130,7 +131,7 @@ Checks which languages are available for a given anime season (not recommended t
 
 ---
 
-### `getAllAnime(output = "anime_list.json", get_seasons = false)`
+### `animesama.getAllAnime(output = "anime_list.json", get_seasons = false)`
 Fetches the full anime catalog, optionally including season information.
 
 - **Parameters:**
@@ -141,7 +142,7 @@ Fetches the full anime catalog, optionally including season information.
 
 ---
 
-### `getLatestEpisodes(languageFilter = null)`
+### `animesama.getLatestEpisodes(languageFilter = null)`
 Scrapes the latest released episodes, optionally filtered by language.
 
 - **Parameters:**
@@ -160,7 +161,7 @@ Scrapes the latest released episodes, optionally filtered by language.
 
 ---
 
-### `getRandomAnime()`
+### `animesama.getRandomAnime()`
 Fetches a random anime from the catalogue.
 
 - **Returns:**  
@@ -177,11 +178,12 @@ Fetches a random anime from the catalogue.
 
 ---
 
-### `getEpisodeTitles(AnimeUrl)`
+### `animesama.getEpisodeTitles(AnimeUrl, customChromiumPath)`
 Fetches the names of all episodes in a season
 
 - **Parameters:**
   - `animeUrl` *(string)*: URL of the anime’s season/episode page.
+  - `animeUrl` *(string)*: Path of the Chromium folder
 - **Returns:**  
   An array of episode titles.
 
@@ -189,10 +191,10 @@ Fetches the names of all episodes in a season
 
 ## `AnimeScrapper("animepahe")` methods
 
-- [searchAnime](#searchanimequery)
+- [searchAnime](#animepahesearchanimequery)
 
 
-### `searchAnime(query)`
+### `animepahe.searchAnime(query)`
 Searches for anime titles that match the given query.
 
 - **Parameters:**
@@ -218,6 +220,52 @@ Searches for anime titles that match the given query.
   ]
   ```
 
+---
+
+## `AnimeScrapper("crunchyroll")` methods
+
+- [searchAnime](#crunchyrollsearchanimequery-limit--10)
+- [getEpisodeInfo](#crunchyrollgetepisodeinfoanimeurl-seasontitle)
+
+
+### `crunchyroll.searchAnime(query, limit = 10)`
+Searches for anime titles that match the given query.
+
+- **Parameters:**
+  - `query` *(string)*: The search keyword.
+  - `limit` *(number)*: Maximum number of results to return (default: 10).
+- **Returns:**  
+  An array of anime objects:
+  ```js
+  [
+    {
+      title: string,
+      url: string,
+      cover: string
+    },
+    ...
+  ]
+  ```
+
+### `crunchyroll.getEpisodeInfo(animeUrl, seasonTitle)`
+Extracts information from all episodes of a season of an anime.
+
+- **Parameters:**
+  - `animeUrl` *(string)*: Anime page URL.
+  - `seasonTitle` *(string)*: Name of the season for which you want episode information. If null, returns episodes from season 1.
+- **Returns:**  
+  An array of episode objects:
+  ```js
+  [
+    {
+      title: string,
+      synopsis: string,
+      releaseDate: string,
+      cover: string
+    },
+    ...
+  ]
+  ```
 ---
 
 ## Functions
