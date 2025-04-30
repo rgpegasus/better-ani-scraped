@@ -183,7 +183,7 @@ Fetches the names of all episodes in a season
 
 - **Parameters:**
   - `animeUrl` *(string)*: URL of the anime’s season/episode page.
-  - `animeUrl` *(string)*: Path of the Chromium folder
+  - `customChromiumPath` *(string)*: Path of the Chromium folder
 - **Returns:**  
   An array of episode titles.
 
