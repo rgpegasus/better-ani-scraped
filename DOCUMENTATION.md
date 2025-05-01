@@ -169,8 +169,13 @@ Fetches the full anime catalog, optionally including season information.
   ```js
   [
     {
-      title: string,
       url: string,
+      title: string,
+      altTitles: string[],
+      cover: string,
+      genres: string[],
+      types: string[],
+      languages: string[],
     }
     ...
   ]
@@ -302,7 +307,7 @@ Extracts information from all episodes of a season of an anime.
   ```
 ---
 
-## Utility functions
+## Utility functions 
 
 - [getVideoUrlFromEmbed](#getvideourlfromembedsource-embedurl)
 

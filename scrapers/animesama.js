@@ -343,31 +343,45 @@ export async function getAllAnime(
     const url = pageNum === 1 ? CATALOGUE_URL : `${CATALOGUE_URL}?page=${pageNum}`;
     const res = await axios.get(url, { headers: getHeaders(CATALOGUE_URL) });
     const $ = cheerio.load(res.data);
-
+  
     const containers = $("div.shrink-0.m-3.rounded.border-2");
-
+  
     containers.each((_, el) => {
       const anchor = $(el).find("a");
       const title = anchor.find("h1").text().trim();
       const link = anchor.attr("href");
-
-      const tagText = anchor.find("p").filter((_, p) =>
-        isWanted($(p).text(), wantedTypes)
-      ).first().text();
-
-      const languageText = anchor.find("p").filter((_, p) =>
-        isWanted($(p).text(), wantedLanguages)
-      ).first().text();
-
-      if (title && link && tagText && languageText) {
+      const img = anchor.find("img").attr("src");
+  
+      const paragraphs = anchor.find("p").toArray().map(p => $(p).text().trim());
+  
+      const altTitles = paragraphs[0] ? paragraphs[0].split(',').map(name => name.trim()) : [];
+      const genres = paragraphs[1] ? paragraphs[1].split(',').map(genre => genre.trim()) : [];
+      const type = paragraphs[2] ? paragraphs[2].split(',').map(t => t.trim()) : [];
+      const language = paragraphs[3] ? paragraphs[3].split(',').map(lang => lang.trim()) : [];
+      const filteredTypes = type.filter(t => isWanted(t, wantedTypes));
+      const filteredLanguages = language.filter(lang => isWanted(lang, wantedLanguages));
+      if (
+        title &&
+        link &&
+        filteredTypes.length > 0 &&
+        filteredLanguages.length > 0
+      ) {
         const fullUrl = link.startsWith("http") ? link : `${BASE_URL}${link}`;
-        animeLinks.push({ title, url: fullUrl });
+        animeLinks.push({
+          url: fullUrl,
+          title,
+          altTitles,
+          cover: img,
+          genres,
+          types: filteredTypes,
+          languages: filteredLanguages,
+        });
       }
     });
-
+  
     return containers.length > 0;
   };
-
+  
   const enrichWithSeasons = async (list) => {
     for (const anime of list) {
       try {
@@ -392,7 +406,6 @@ export async function getAllAnime(
         await new Promise(r => setTimeout(r, 300));
       }
 
-      // Dédupliquer les URLs
       const uniqueLinks = [...new Map(animeLinks.map(item => [item.url, item])).values()];
       if (get_seasons) await enrichWithSeasons(uniqueLinks);
 
@@ -400,7 +413,7 @@ export async function getAllAnime(
       return true;
     }
   } catch (err) {
-    console.error("🔥 Erreur surpuissante détectée :", err.message);
+    console.error("error :", err.message);
     return false;
   }
 }
