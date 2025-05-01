@@ -1,9 +1,39 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
 import fs from "fs";
+import path from 'path';
+import { exec as execCallback } from 'child_process';
+import { promisify } from 'util';
+const execAsync = promisify(execCallback);
+ 
 
 const BASE_URL = "https://anime-sama.fr";
 const CATALOGUE_URL = `${BASE_URL}/catalogue`; 
+
+async function ensureChromiumInstalled(customPath) {
+  if (customPath) {
+    if (fs.existsSync(customPath)) {
+      console.log("customPath:", customPath);
+      return customPath;
+    } else {
+      console.log(`The custom path to Chromium is invalid : ${customPath}`);
+    }
+  }
+  const basePath = path.join(
+    process.env.HOME || process.env.USERPROFILE,
+    '.cache',
+    'puppeteer',
+    'chrome'
+  );
+  const chromiumPath = path.join(basePath, 'win64-135.0.7049.95', 'chrome-win64', 'chrome.exe');
+
+  if (!fs.existsSync(chromiumPath)) {
+    console.log("📦 Downloading Chromium 135.0.7049.95...");
+    await execAsync('npx puppeteer browsers install chrome@135.0.7049.95');
+  }
+
+  return chromiumPath;
+}
 
 function getHeaders(referer = BASE_URL) {
   return {
@@ -13,10 +43,17 @@ function getHeaders(referer = BASE_URL) {
   };
 }
 
-export async function searchAnime(query, limit = 10) {
-  const url = `${CATALOGUE_URL}/?type%5B%5D=Anime&search=${encodeURIComponent(
+export async function searchAnime(
+  query,
+  limit = 10,
+  wantedLanguages = ["vostfr", "vf", "vastfr"],
+  wantedTypes = ["Anime", "Film"]
+) {
+  const url = `${CATALOGUE_URL}/?search=${encodeURIComponent(
     query
   )}`;
+  const isWanted = (text, list) =>
+    list.some(item => text.toLowerCase().includes(item.toLowerCase()));
   const res = await axios.get(url, { headers: getHeaders(CATALOGUE_URL) });
   const $ = cheerio.load(res.data);
   const results = [];
@@ -33,6 +70,14 @@ export async function searchAnime(query, limit = 10) {
       .text()
       .trim();
     const cover = anchor.find("img").first().attr("src");
+
+    const tagText = anchor.find("p").filter((_, p) =>
+      isWanted($(p).text(), wantedTypes)
+    ).first().text();
+
+    const languageText = anchor.find("p").filter((_, p) =>
+      isWanted($(p).text(), wantedLanguages)
+    ).first().text();
 
     const altTitles = altRaw
       ? altRaw
@@ -53,7 +98,7 @@ export async function searchAnime(query, limit = 10) {
           .filter(Boolean)
       : [];
 
-    if (title && link) {
+    if (title && link && tagText && languageText) {
       results.push({
         title,
         altTitles,
@@ -123,37 +168,7 @@ export async function getSeasons(animeUrl, language = "vostfr") {
   return seasons;
 }
 
-
-import path from 'path';
-import { exec as execCallback } from 'child_process';
-import { promisify } from 'util';
-const execAsync = promisify(execCallback);
-
-async function ensureChromiumInstalled(customPath) {
-  if (customPath) {
-    if (fs.existsSync(customPath)) {
-      console.log("customPath:", customPath);
-      return customPath;
-    } else {
-      console.log(`The custom path to Chromium is invalid : ${customPath}`);
-    }
-  }
-  const basePath = path.join(
-    process.env.HOME || process.env.USERPROFILE,
-    '.cache',
-    'puppeteer',
-    'chrome'
-  );
-  const chromiumPath = path.join(basePath, 'win64-135.0.7049.95', 'chrome-win64', 'chrome.exe');
-
-  if (!fs.existsSync(chromiumPath)) {
-    console.log("📦 Downloading Chromium 135.0.7049.95...");
-    await execAsync('npx puppeteer browsers install chrome@135.0.7049.95');
-  }
-
-  return chromiumPath;
-}
-export async function getEpisodeTitles(animeUrl, customChromiumPath) {
+export async function getEpisodeTitles(seasonUrl, customChromiumPath) {
   let browser;
   try {
     const puppeteer = await import('puppeteer');
@@ -177,7 +192,7 @@ export async function getEpisodeTitles(animeUrl, customChromiumPath) {
       }
     });
 
-    await page.goto(animeUrl, { waitUntil: 'domcontentloaded' });
+    await page.goto(seasonUrl, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('#selectEpisodes');
 
     const titres = await page.$$eval('#selectEpisodes option', options =>
@@ -194,22 +209,21 @@ export async function getEpisodeTitles(animeUrl, customChromiumPath) {
   }
 }
 
-
-export async function getEmbed(animeUrl, hostPriority = ["vidmoly"], customChromiumPath) {
-  const res = await axios.get(animeUrl, {
-    headers: getHeaders(animeUrl.split("/").slice(0, 5).join("/")),
+export async function getEmbed(seasonUrl, hostPriority = ["sibnet", "vidmoly"], customChromiumPath) {
+  const res = await axios.get(seasonUrl, {
+    headers: getHeaders(seasonUrl.split("/").slice(0, 5).join("/")),
   });
 
   const $ = cheerio.load(res.data);
   const scriptTag = $('script[src*="episodes.js"]').attr("src");
   if (!scriptTag) throw new Error("No episodes script found");
 
-  const scriptUrl = animeUrl.endsWith("/")
-    ? animeUrl + scriptTag
-    : animeUrl + "/" + scriptTag;
+  const scriptUrl = seasonUrl.endsWith("/")
+    ? seasonUrl + scriptTag
+    : seasonUrl + "/" + scriptTag;
 
   const episodesJs = await axios
-    .get(scriptUrl, { headers: getHeaders(animeUrl) })
+    .get(scriptUrl, { headers: getHeaders(seasonUrl) })
     .then((r) => r.data);
 
   const matches = [
@@ -243,13 +257,12 @@ export async function getEmbed(animeUrl, hostPriority = ["vidmoly"], customChrom
     finalEmbeds.push(selectedUrl || null);
   }
 
-  const titles = await getEpisodeTitles(animeUrl, customChromiumPath);
+  const titles = await getEpisodeTitles(seasonUrl, customChromiumPath);
   return finalEmbeds.map((url, i) => ({
     title: titles[i] || "Untitled",
     url,
   }));
 }
-
 
 export async function getAnimeInfo(animeUrl) {
   const res = await axios.get(animeUrl, { headers: getHeaders(CATALOGUE_URL) });
@@ -285,7 +298,8 @@ export async function getAnimeInfo(animeUrl) {
 
 export async function getAvailableLanguages(
   seasonUrl,
-  wantedLanguages = ["vostfr", "vf", "va", "vkr", "vcn", "vqc"]
+  wantedLanguages = ["vostfr", "vf", "va", "vkr", "vcn", "vqc", "vf1", "vf2"],
+  numberEpisodes = false
 ) {
   const languageLinks = [];
 
@@ -297,87 +311,96 @@ export async function getAvailableLanguages(
         headers: getHeaders(CATALOGUE_URL),
       });
       if (res.status === 200) {
-        const episodeCount = (await getEmbed(languageUrl)).length;
-        languageLinks.push({ language: language.toUpperCase(), episodeCount: episodeCount });
+        if (numberEpisodes){
+          const episodeCount = (await getEmbed(languageUrl)).length;
+          languageLinks.push({ language: language.toUpperCase(), episodeCount: episodeCount });
+        } else {
+          languageLinks.push({ language: language.toUpperCase()});
+        }
+        
       }
     } catch (error) {
       // If an error occurs (like a 404), we skip that language
       continue;
     }
   }
-
   return languageLinks;
 }
 
 export async function getAllAnime(
+  wantedLanguages = ["vostfr", "vf", "vastfr"],
+  wantedTypes = ["Anime", "Film"],
+  page = null,
   output = "anime_list.json",
   get_seasons = false
 ) {
-  // BE CAREFUL, GET_SEASONS TAKES A VERY VERY LONG TIME TO FINISH
   let animeLinks = [];
-  let page = 1;
+
+  const isWanted = (text, list) =>
+    list.some(item => text.toLowerCase().includes(item.toLowerCase()));
+
+  const fetchPage = async (pageNum) => {
+    const url = pageNum === 1 ? CATALOGUE_URL : `${CATALOGUE_URL}?page=${pageNum}`;
+    const res = await axios.get(url, { headers: getHeaders(CATALOGUE_URL) });
+    const $ = cheerio.load(res.data);
+
+    const containers = $("div.shrink-0.m-3.rounded.border-2");
+
+    containers.each((_, el) => {
+      const anchor = $(el).find("a");
+      const title = anchor.find("h1").text().trim();
+      const link = anchor.attr("href");
+
+      const tagText = anchor.find("p").filter((_, p) =>
+        isWanted($(p).text(), wantedTypes)
+      ).first().text();
+
+      const languageText = anchor.find("p").filter((_, p) =>
+        isWanted($(p).text(), wantedLanguages)
+      ).first().text();
+
+      if (title && link && tagText && languageText) {
+        const fullUrl = link.startsWith("http") ? link : `${BASE_URL}${link}`;
+        animeLinks.push({ title, url: fullUrl });
+      }
+    });
+
+    return containers.length > 0;
+  };
+
+  const enrichWithSeasons = async (list) => {
+    for (const anime of list) {
+      try {
+        const seasons = await getSeasons(anime.url);
+        anime.seasons = Array.isArray(seasons) ? seasons : [];
+      } catch (err) {
+        console.warn(`⚠️ Failed to fetch seasons for ${anime.title}: ${err.message}`);
+        anime.seasons = [];
+      }
+      await new Promise(r => setTimeout(r, 300));
+    }
+  };
 
   try {
-    while (true) {
-      const url = page === 1 ? CATALOGUE_URL : `${CATALOGUE_URL}?page=${page}`;
-      const res = await axios.get(url, { headers: getHeaders(CATALOGUE_URL) });
-      const $ = cheerio.load(res.data);
-
-      const containers = $("div.shrink-0.m-3.rounded.border-2");
-
-      if (containers.length === 0) {
-        // console.log("No more anime found, stopping.");
-        break;
+    if (page) {
+      await fetchPage(page);
+      if (get_seasons) await enrichWithSeasons(animeLinks);
+      return animeLinks;
+    } else {
+      let currentPage = 1;
+      while (await fetchPage(currentPage++)) {
+        await new Promise(r => setTimeout(r, 300));
       }
 
-      containers.each((_, el) => {
-        const anchor = $(el).find("a");
-        const title = anchor.find("h1").text().trim();
-        const link = anchor.attr("href");
+      // Dédupliquer les URLs
+      const uniqueLinks = [...new Map(animeLinks.map(item => [item.url, item])).values()];
+      if (get_seasons) await enrichWithSeasons(uniqueLinks);
 
-        const tagText = anchor
-          .find("p")
-          .filter((_, p) => $(p).text().includes("Anime"))
-          .first()
-          .text();
-
-        if (title && link && tagText.includes("Anime")) {
-          const fullUrl = link.startsWith("http") ? link : `${BASE_URL}${link}`;
-          animeLinks.push({ title: title, url: fullUrl });
-        }
-      });
-
-      page++;
-      await new Promise((r) => setTimeout(r, 300));
+      fs.writeFileSync(output, JSON.stringify(uniqueLinks, null, 2), "utf-8");
+      return true;
     }
-
-    // Deduplicate
-    const uniqueLinks = animeLinks.filter(
-      (item, index, self) => index === self.findIndex((i) => i.url === item.url)
-    );
-
-    if (get_seasons) {
-      // console.log("Fetching seasons for each anime...");
-      for (let anime of uniqueLinks) {
-        try {
-          const seasons = await getSeasons(anime.url);
-          anime.seasons = Array.isArray(seasons) ? seasons : [];
-        } catch (err) {
-          console.warn(
-            `⚠️ Failed to fetch seasons for ${anime.name}: ${err.message}`
-          );
-          anime.seasons = [];
-        }
-
-        // Optional delay to avoid rate-limiting
-        await new Promise((r) => setTimeout(r, 300));
-      }
-    }
-
-    fs.writeFileSync(output, JSON.stringify(uniqueLinks, null, 2), "utf-8");
-    return true;
   } catch (err) {
-    console.error("Error occurred:", err.message);
+    console.error("🔥 Erreur surpuissante détectée :", err.message);
     return false;
   }
 }
@@ -424,13 +447,21 @@ export async function getLatestEpisodes(languageFilter = null) {
   }
 }
 
-export async function getRandomAnime() {
+export async function getRandomAnime(
+  wantedLanguages = ["vostfr", "vf", "vastfr"],
+  wantedTypes = ["Anime", "Film"],
+  maxAttempts = null,
+  attempt = 0
+) {
   try {
     const res = await axios.get(
-      `${CATALOGUE_URL}/?type[]=Anime&search=&random=1`,
+      `${CATALOGUE_URL}/?search=&random=1`,
       { headers: getHeaders(CATALOGUE_URL) }
     );
+
     const $ = cheerio.load(res.data);
+    const isWanted = (text, list) =>
+      list.some(item => text.toLowerCase().includes(item.toLowerCase()));
 
     const container = $("div.shrink-0.m-3.rounded.border-2").first();
     const anchor = container.find("a");
@@ -463,7 +494,15 @@ export async function getRandomAnime() {
           .filter(Boolean)
       : [];
 
-    if (title && link) {
+    const tagText = anchor.find("p").filter((_, p) =>
+      isWanted($(p).text(), wantedTypes)
+    ).first().text();
+
+    const languageText = anchor.find("p").filter((_, p) =>
+      isWanted($(p).text(), wantedLanguages)
+    ).first().text();
+
+    if (title && link && tagText && languageText) {
       return {
         title,
         altTitles,
@@ -472,10 +511,15 @@ export async function getRandomAnime() {
         cover,
       };
     } else {
-      throw new Error("No anime found in random response.");
+      if (maxAttempts === null || attempt < maxAttempts) {
+        return await getRandomAnime(wantedLanguages, wantedTypes, maxAttempts, attempt + 1);
+      } else {
+        throw new Error("Max attempts reached without finding a valid anime.");
+      }
     }
   } catch (err) {
     console.error("Failed to fetch random anime:", err.message);
     return null;
   }
 }
+

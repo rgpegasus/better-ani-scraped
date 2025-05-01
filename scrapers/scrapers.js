@@ -33,9 +33,18 @@ export class AnimeScraper {
     }
   }
 
-  async getEmbed(animeUrl, ...rest) {
+  async getEpisodeTitles(seasonUrl, ...rest) {
     try {
-      return await this.source.getEmbed(animeUrl, ...rest);
+      return await this.source.getEpisodeTitles(seasonUrl, ...rest);
+    } catch (error) {
+      console.error(`This scraper does not have the getEpisodeTitles function implemented or an error happened -> ${error}`);
+      return null;
+    }
+  }
+  
+  async getEmbed(seasonUrl, ...rest) {
+    try {
+      return await this.source.getEmbed(seasonUrl, ...rest);
     } catch (error) {
       console.error(`This scraper does not have the getEmbed function implemented or an error happened -> ${error}`);
       return null;
@@ -78,23 +87,15 @@ export class AnimeScraper {
     }
   }
 
-  async getRandomAnime() {
+  async getRandomAnime(...rest) {
     try {
-      return await this.source.getRandomAnime();
+      return await this.source.getRandomAnime(...rest);
     } catch (error) {
       console.error(`This scraper does not have the getRandomAnime function implemented or an error happened -> ${error}`);
       return null;
     }
   }
 
-  async getEpisodeTitles(animeUrl, ...rest) {
-    try {
-      return await this.source.getEpisodeTitles(animeUrl, ...rest);
-    } catch (error) {
-      console.error(`This scraper does not have the getEpisodeTitles function implemented or an error happened -> ${error}`);
-      return null;
-    }
-  }
   async getEpisodeInfo(animeUrl, ...rest) {
     try {
       return await this.source.getEpisodeInfo(animeUrl, ...rest);

@@ -1,0 +1,10 @@
+import { AnimeScraper } from "../../index.js"; // REPLACE BY "from 'better-ani-scraped';"
+
+const main = async () => {
+  const animesama = new AnimeScraper('animesama');
+
+  const search = await animesama.searchAnime("86", 3, ["vostfr", "vf", "vastfr"], ["Anime", "Film"]);
+  console.log("Search Results:", search);
+};
+
+main().catch(console.error);
