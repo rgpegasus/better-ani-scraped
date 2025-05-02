@@ -27,7 +27,7 @@ const crunchyroll = new AnimeScraper('crunchyroll') //for Crunchyroll
 
 ## `AnimeScraper("animesama")` methods
 
-- [searchAnime](#animesamasearchanimequery-limit--10-wantedlanguages--vostfr-vf-vastfr-wantedtypes--anime-film)
+- [searchAnime](#animesamasearchanimequery-limit--10-wantedlanguages--vostfr-vf-vastfr-wantedtypes--anime-film-page--null)
 - [getSeasons](#animesamagetseasonsanimeurl-language--vostfr)
 - [getEpisodeTitles](#animesamagetepisodetitlesseasonurl-customchromiumpath)
 - [getEmbed](#animesamagetembedseasonurl-hostpriority--sibnet-vidmoly)
@@ -37,7 +37,7 @@ const crunchyroll = new AnimeScraper('crunchyroll') //for Crunchyroll
 - [getLatestEpisodes](#animesamagetlatestepisodeslanguagefilter--null)
 - [getRandomAnime](#animesamagetrandomanimewantedlanguages--vostfr-vf-vastfr-wantedtypes--anime-film-maxattempts--null-attempt--0)
 
-### `animesama.searchAnime(query, limit = 10, wantedLanguages = ["vostfr", "vf", "vastfr"], wantedTypes = ["Anime", "Film"])`
+### `animesama.searchAnime(query, limit = 10, wantedLanguages = ["vostfr", "vf", "vastfr"], wantedTypes = ["Anime", "Film"], page = null)`
 Searches for anime titles that match the given query.
 
 - **Parameters:**
@@ -45,6 +45,7 @@ Searches for anime titles that match the given query.
   - `limit` *(number)*: Maximum number of results to return (default: 10).
   - `wantedLanguages` *(string[])*: Array of wanted languages.
   - `wantedTypes` *(string[])*: Array of wanted types.
+  - `page` *(number)*: The catalog page number.
 - **Returns:**  
   An array of anime objects:
   ```js

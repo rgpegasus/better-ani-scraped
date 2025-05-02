@@ -3,7 +3,7 @@ import { AnimeScraper } from "../../index.js"; // REPLACE BY "from 'better-ani-s
 const main = async () => {
   const animesama = new AnimeScraper('animesama');
 
-  const search = await animesama.searchAnime("86", 3, ["vostfr", "vf", "vastfr"], ["Anime", "Film"]);
+  const search = await animesama.searchAnime("a", 100, ["vostfr", "vf", "vastfr"], ["Anime", "Film"], 2);
   console.log("Search Results:", search);
 };
 

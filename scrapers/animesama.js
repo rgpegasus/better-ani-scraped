@@ -47,67 +47,73 @@ export async function searchAnime(
   query,
   limit = 10,
   wantedLanguages = ["vostfr", "vf", "vastfr"],
-  wantedTypes = ["Anime", "Film"]
+  wantedTypes = ["Anime", "Film"],
+  page = null
 ) {
-  const url = `${CATALOGUE_URL}/?search=${encodeURIComponent(
-    query
-  )}`;
   const isWanted = (text, list) =>
     list.some(item => text.toLowerCase().includes(item.toLowerCase()));
-  const res = await axios.get(url, { headers: getHeaders(CATALOGUE_URL) });
-  const $ = cheerio.load(res.data);
+
   const results = [];
 
-  $("a.flex.divide-x").each((i, el) => {
-    if (i >= limit) return false;
+  const fetchPage = async (pageNum) => {
+    const url =
+      pageNum === 1
+        ? `${CATALOGUE_URL}/?search=${encodeURIComponent(query)}`
+        : `${CATALOGUE_URL}/?search=${encodeURIComponent(query)}&page=${pageNum}`;
 
-    const anchor = $(el);
-    const link = anchor.attr("href");
-    const title = anchor.find("h1").first().text().trim();
-    const altRaw = anchor
-      .find("p.text-xs.opacity-40.italic")
-      .first()
-      .text()
-      .trim();
-    const cover = anchor.find("img").first().attr("src");
+    const res = await axios.get(url, { headers: getHeaders(CATALOGUE_URL) });
+    const $ = cheerio.load(res.data);
 
-    const tagText = anchor.find("p").filter((_, p) =>
-      isWanted($(p).text(), wantedTypes)
-    ).first().text();
+    const containers = $("a.flex.divide-x");
 
-    const languageText = anchor.find("p").filter((_, p) =>
-      isWanted($(p).text(), wantedLanguages)
-    ).first().text();
+    containers.each((_, el) => {
+      if (results.length >= limit) return false;
 
-    const altTitles = altRaw
-      ? altRaw
-          .split(",")
-          .map((t) => t.trim())
-          .filter(Boolean)
-      : [];
+      const anchor = $(el);
+      const link = anchor.attr("href");
+      const title = anchor.find("h1").first().text().trim();
+      const altRaw = anchor.find("p.text-xs.opacity-40.italic").first().text().trim();
+      const cover = anchor.find("img").first().attr("src");
 
-    const genreRaw = anchor
-      .find("p.text-xs.font-medium.text-gray-300")
-      .first()
-      .text()
-      .trim();
-    const genres = genreRaw
-      ? genreRaw
-          .split(",")
-          .map((g) => g.trim())
-          .filter(Boolean)
-      : [];
+      const tagText = anchor.find("p").filter((_, p) =>
+        isWanted($(p).text(), wantedTypes)
+      ).first().text();
 
-    if (title && link && tagText && languageText) {
-      results.push({
-        title,
-        altTitles,
-        genres,
-        url: link.startsWith("http") ? link : `${CATALOGUE_URL}${link}`,
-        cover,
-      });
+      const languageText = anchor.find("p").filter((_, p) =>
+        isWanted($(p).text(), wantedLanguages)
+      ).first().text();
+
+      const altTitles = altRaw
+        ? altRaw.split(",").map((t) => t.trim()).filter(Boolean)
+        : [];
+
+      const genreRaw = anchor.find("p.text-xs.font-medium.text-gray-300").first().text().trim();
+      const genres = genreRaw
+        ? genreRaw.split(",").map((g) => g.trim()).filter(Boolean)
+        : [];
+
+      if (title && link && tagText && languageText) {
+        results.push({
+          title,
+          altTitles,
+          genres,
+          url: link.startsWith("http") ? link : `${CATALOGUE_URL}${link}`,
+          cover,
+        });
+      }
+    });
+
+    return containers.length > 0;
+  };
+
+  if (page) {
+    await fetchPage(page);
+  } else {
+    let currentPage = 1;
+    while (await fetchPage(currentPage++) && results.length < limit) {
+      await new Promise((res) => setTimeout(res, 300));
     }
-  });
+  }
 
   return results;
 }
