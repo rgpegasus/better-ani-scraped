@@ -30,7 +30,7 @@ const crunchyroll = new AnimeScraper('crunchyroll') //for Crunchyroll
 - [searchAnime](#animesamasearchanimequery-limit--10-wantedlanguages--vostfr-vf-vastfr-wantedtypes--anime-film-page--null)
 - [getSeasons](#animesamagetseasonsanimeurl-language--vostfr)
 - [getEpisodeTitles](#animesamagetepisodetitlesseasonurl-customchromiumpath)
-- [getEmbed](#animesamagetembedseasonurl-hostpriority--sibnet-vidmoly)
+- [getEmbed](#animesamagetembedseasonurl-hostpriority--sendvid-sibnet-vidmoly-oneupload)
 - [getAnimeInfo](#animesamagetanimeinfoanimeurl)
 - [getAvailableLanguages](#animesamagetavailablelanguagesseasonurl-wantedlanguages--vostfr-vf-va-vkr-vcn-vqc-vf1-vf2-numberepisodes--false)
 - [getAllAnime](#animesamagetallanimewantedlanguages--vostfr-vf-vastfr-wantedtypes--anime-film-page--null-output--anime_listjson-get_seasons--false)
@@ -95,7 +95,7 @@ Fetches the names of all episodes in a season
 
 ---
 
-### `animesama.getEmbed(seasonUrl, hostPriority = ["sibnet", "vidmoly"])`
+### `animesama.getEmbed(seasonUrl, hostPriority = ["sendvid", "sibnet", "vidmoly", "oneupload"])`
 Retrieves embed URLs for episodes, prioritizing by host.
 
 - **Parameters:**
@@ -108,6 +108,7 @@ Retrieves embed URLs for episodes, prioritizing by host.
     {
       title: string,
       url: string,
+      host: string,
     }
     ...
   ]

@@ -215,7 +215,7 @@ export async function getEpisodeTitles(seasonUrl, customChromiumPath) {
   }
 }
 
-export async function getEmbed(seasonUrl, hostPriority = ["sibnet", "vidmoly"], customChromiumPath) {
+export async function getEmbed(seasonUrl, hostPriority = ["sendvid", "sibnet", "vidmoly", "oneupload"], customChromiumPath) {
   const res = await axios.get(seasonUrl, {
     headers: getHeaders(seasonUrl.split("/").slice(0, 5).join("/")),
   });
@@ -249,25 +249,35 @@ export async function getEmbed(seasonUrl, hostPriority = ["sibnet", "vidmoly"], 
 
   const maxEpisodes = Math.max(...episodeMatrix.map(arr => arr.length));
   const finalEmbeds = [];
-  for (let i = 0; i < maxEpisodes; i++) {
-    let selectedUrl = null;
-    for (const host of hostPriority) {
-      for (const arr of episodeMatrix) {
-        if (i < arr.length && arr[i].includes(host)) {
-          selectedUrl = arr[i];
-          break;
-        }
+for (let i = 0; i < maxEpisodes; i++) {
+  let selectedUrl = null;
+  let selectedHost = null;
+
+  for (const host of hostPriority) {
+    for (const arr of episodeMatrix) {
+      if (i < arr.length && arr[i].includes(host)) {
+        selectedUrl = arr[i];
+        selectedHost = host;
+        break;
       }
-      if (selectedUrl) break;
     }
-    finalEmbeds.push(selectedUrl || null);
+    if (selectedUrl) break;
   }
 
-  const titles = await getEpisodeTitles(seasonUrl, customChromiumPath);
-  return finalEmbeds.map((url, i) => ({
-    title: titles[i] || "Untitled",
-    url,
-  }));
+  finalEmbeds.push({
+    url: selectedUrl || null,
+    host: selectedHost || null
+  });
+}
+
+const titles = await getEpisodeTitles(seasonUrl, customChromiumPath);
+
+return finalEmbeds.map((embed, i) => ({
+  title: titles[i] || null,
+  url: embed.url,
+  host: embed.host
+}));
+
 }
 
 export async function getAnimeInfo(animeUrl) {
