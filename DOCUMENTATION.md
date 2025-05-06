@@ -316,10 +316,14 @@ Extracts information from all episodes of a season of an anime.
 Retrieves the video URL of the source's embed.
 
 - **Parameters:**
-  - `source` *(string)*: The embed source (only "sibnet" available at the moment)
+  - `source` *(string)*: The embed source (only "sibnet", "sendvid", "vidmoly" and "oneupload" available at the moment)
   - `embedUrl` *(string)*: The embed url of the given source.
 - **Returns:**  
-  A video URL as a string.
+  A video URL as a string :
+  - `sibnet`: mp4
+  - `sendvid`: mp4
+  - `vidmoly`: m3u8
+  - `oneupload`: m3u8
 
 ---
 ---

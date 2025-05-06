@@ -1,6 +1,6 @@
 {
   "name": "better-ani-scraped",
-  "version": "1.5.2",
+  "version": "1.6.0",
   "description": "Scrape anime data from different sources (only anime-sama.fr for the moment)",
   "main": "index.js",
   "scripts": {
@@ -21,7 +21,7 @@
     "axios": "^1.8.4",
     "cheerio": "^1.0.0",
     "playwright": "^1.52.0",
-    "puppeteer": "^24.7.2",
+    "puppeteer": "^24.8.1",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2"
   },
