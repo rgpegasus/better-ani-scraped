@@ -215,12 +215,23 @@ export async function getEpisodeTitles(seasonUrl, customChromiumPath) {
   }
 }
 
-export async function getEmbed(seasonUrl, hostPriority = ["sendvid", "sibnet", "vidmoly", "oneupload"], customChromiumPath) {
+export async function getEmbed(
+  seasonUrl,
+  hostPriority = ["sendvid", "sibnet", "vidmoly", "oneupload"],
+  includeInfo = false,
+  customChromiumPath
+) {
   const res = await axios.get(seasonUrl, {
     headers: getHeaders(seasonUrl.split("/").slice(0, 5).join("/")),
   });
 
   const $ = cheerio.load(res.data);
+
+  const seasonTitle = ($('script').toArray()
+    .map(s => $(s).html())
+    .find(c => c && c.includes('#avOeuvre')) || '')
+    .match(/#avOeuvre"\)\.html\("([^"]+)"/)?.[1] || "Saison inconnue";
+
   const scriptTag = $('script[src*="episodes.js"]').attr("src");
   if (!scriptTag) throw new Error("No episodes script found");
 
@@ -232,9 +243,7 @@ export async function getEmbed(seasonUrl, hostPriority = ["sendvid", "sibnet", "
     .get(scriptUrl, { headers: getHeaders(seasonUrl) })
     .then((r) => r.data);
 
-  const matches = [
-    ...episodesJs.matchAll(/var\s+(eps\d+)\s*=\s*(\[[^\]]+\])/g),
-  ];
+  const matches = [...episodesJs.matchAll(/var\s+(eps\d+)\s*=\s*(\[[^\]]+\])/g)];
   if (!matches.length) throw new Error("No episode arrays found");
 
   let episodeMatrix = [];
@@ -249,36 +258,49 @@ export async function getEmbed(seasonUrl, hostPriority = ["sendvid", "sibnet", "
 
   const maxEpisodes = Math.max(...episodeMatrix.map(arr => arr.length));
   const finalEmbeds = [];
-for (let i = 0; i < maxEpisodes; i++) {
-  let selectedUrl = null;
-  let selectedHost = null;
 
-  for (const host of hostPriority) {
-    for (const arr of episodeMatrix) {
-      if (i < arr.length && arr[i].includes(host)) {
-        selectedUrl = arr[i];
-        selectedHost = host;
-        break;
+  for (let i = 0; i < maxEpisodes; i++) {
+    let selectedUrl = null;
+    let selectedHost = null;
+
+    for (const host of hostPriority) {
+      for (const arr of episodeMatrix) {
+        if (i < arr.length && arr[i].includes(host)) {
+          selectedUrl = arr[i];
+          selectedHost = host;
+          break;
+        }
       }
+      if (selectedUrl) break;
     }
-    if (selectedUrl) break;
+
+    finalEmbeds.push({
+      title: null, // on remplit après
+      url: selectedUrl || null,
+      host: selectedHost || null
+    });
   }
 
-  finalEmbeds.push({
-    url: selectedUrl || null,
-    host: selectedHost || null
+  const titles = await getEpisodeTitles(seasonUrl, customChromiumPath);
+  finalEmbeds.forEach((embed, i) => {
+    embed.title = titles[i] || `Episode ${i + 1}`;
   });
+
+  if (includeInfo) {
+    return {
+      episodes: finalEmbeds,
+      animeInfo: {
+        seasonTitle,
+        episodeCount: maxEpisodes
+      }
+    };
+
+  } else {
+    return finalEmbeds;
+  }
 }
 
-const titles = await getEpisodeTitles(seasonUrl, customChromiumPath);
 
-return finalEmbeds.map((embed, i) => ({
-  title: titles[i] || null,
-  url: embed.url,
-  host: embed.host
-}));
-
-}
 
 export async function getAnimeInfo(animeUrl) {
   const res = await axios.get(animeUrl, { headers: getHeaders(CATALOGUE_URL) });

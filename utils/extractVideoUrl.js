@@ -53,9 +53,11 @@ export async function getSendvidVideo(embedUrl) {
 
 export async function getVidmolyOrOneuploadVideo(embedUrl) {
   try {
+    console.log(embedUrl)
     const { data } = await axios.get(embedUrl, {
       headers: getHeaders(embedUrl),
     });
+    console.log(data)
     const $ = cheerio.load(data);
     const scripts = $("script");
 
