@@ -1,8 +1,8 @@
-# Better-Ani-Scraped Documentation
+,,,,# Better-Ani-Scraped Documentation
 
 A set of utility functions for scraping anime data from multiple sources (only [anime-sama](https://anime-sama.fr) and [animepahe](https://animepahe.ru) available at the moment). This tool allows you to search for anime, retrieve information, get episodes, and more.
 
----
+--- 
 
 ## Summary
 - [Main class](#main-class)
@@ -30,7 +30,7 @@ const crunchyroll = new AnimeScraper('crunchyroll') //for Crunchyroll
 - [searchAnime](#animesamasearchanimequery-limit--10-wantedlanguages--vostfr-vf-vastfr-wantedtypes--anime-film-page--null)
 - [getSeasons](#animesamagetseasonsanimeurl-language--vostfr)
 - [getEpisodeTitles](#animesamagetepisodetitlesseasonurl-customchromiumpath)
-- [getEmbed](#animesamagetembedseasonurl-hostpriority--sendvid-sibnet-vidmoly-oneupload)
+- [getEmbed](#animesamagetembedseasonurl-hostpriority--sendvid-sibnet-vidmoly-oneupload-allhost--false-includeinfo--false-customchromiumpath)
 - [getAnimeInfo](#animesamagetanimeinfoanimeurl)
 - [getAvailableLanguages](#animesamagetavailablelanguagesseasonurl-wantedlanguages--vostfr-vf-va-vkr-vcn-vqc-vf1-vf2-numberepisodes--false)
 - [getAllAnime](#animesamagetallanimewantedlanguages--vostfr-vf-vastfr-wantedtypes--anime-film-page--null-output--anime_listjson-get_seasons--false)
@@ -80,7 +80,7 @@ Fetches all available seasons of an anime in the specified language.
     ...
   ]
   ```
-  Or an error object if the language is not available.
+  Else, an error object if the language is not available.
 
 ---
 
@@ -95,23 +95,44 @@ Fetches the names of all episodes in a season
 
 ---
 
-### `animesama.getEmbed(seasonUrl, hostPriority = ["sendvid", "sibnet", "vidmoly", "oneupload"])`
+### `animesama.getEmbed(seasonUrl, hostPriority = ["sendvid", "sibnet", "vidmoly", "oneupload"], allHost = false, includeInfo = false, customChromiumPath)`
 Retrieves embed URLs for episodes, prioritizing by host.
 
 - **Parameters:**
   - `seasonUrl` *(string)*: URL of the anime’s season page.
   - `hostPriority` *(string[])*: Array of preferred hostnames.
+  - `allHost` *(boolean)*: If `true`, fetches all available embeds contained in *hostPriority*
+  - `includeInfo` *(boolean)*: If `true`, also fetches the name of the season and the number of episodes in it
+  - `customChromiumPath` *(string)*: Path of the Chromium folder
 - **Returns:**  
-  An array of embed video:
+  An array of embed video if *includeInfo = false* :
   ```js
   [
     {
       title: string,
-      url: string,
-      host: string,
-    }
+      url: string, //string[] if allHost = true
+      host: string, //string[] if allHost = true
+    },
     ...
   ]
+  ```
+  Else : 
+  ```js
+  {
+    episodes :
+    [
+      {
+        title: string,
+        url: string, //string[] if allHost = true
+        host: string, //string[] if allHost = true
+      },
+      ...
+    ]
+    animeInfo : {
+      seasonTitle: string,
+      episodeCount:number,
+    }
+  }
 
   ```
 ---
@@ -149,7 +170,7 @@ Checks which languages are available for a given anime season (Avoid using `numb
     {
       language: string,
       episodeCount: number //if numberEpisodes = true
-    }
+    },
     ...
   ]
   ```
@@ -178,7 +199,7 @@ Fetches the full anime catalog, optionally including season information.
       genres: string[],
       types: string[],
       languages: string[],
-    }
+    },
     ...
   ]
   ```

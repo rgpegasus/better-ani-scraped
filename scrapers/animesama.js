@@ -218,7 +218,8 @@ export async function getEpisodeTitles(seasonUrl, customChromiumPath) {
 export async function getEmbed(
   seasonUrl,
   hostPriority = ["sendvid", "sibnet", "vidmoly", "oneupload"],
-  includeInfo = false,
+  allHost = false,
+  includeInfo = false, 
   customChromiumPath
 ) {
   const res = await axios.get(seasonUrl, {
@@ -260,25 +261,49 @@ export async function getEmbed(
   const finalEmbeds = [];
 
   for (let i = 0; i < maxEpisodes; i++) {
-    let selectedUrl = null;
-    let selectedHost = null;
+    if (allHost) {
+      const urls = [];
+      const hosts = [];
 
-    for (const host of hostPriority) {
-      for (const arr of episodeMatrix) {
-        if (i < arr.length && arr[i].includes(host)) {
-          selectedUrl = arr[i];
-          selectedHost = host;
-          break;
+      for (const host of hostPriority) {
+        for (const arr of episodeMatrix) {
+          if (i < arr.length && arr[i].includes(host)) {
+            if (!hosts.includes(host)) {
+              urls.push(arr[i]);
+              hosts.push(host);
+            }
+            break; // une seule URL par host
+          }
         }
       }
-      if (selectedUrl) break;
-    }
 
-    finalEmbeds.push({
-      title: null, // on remplit après
-      url: selectedUrl || null,
-      host: selectedHost || null
-    });
+      finalEmbeds.push({
+        title: null, // à remplir plus tard
+        url: urls.length ? urls : null,
+        host: hosts.length ? hosts : null,
+      });
+
+    } else {
+      let selectedUrl = null;
+      let selectedHost = null;
+
+      for (const host of hostPriority) {
+        for (const arr of episodeMatrix) {
+          if (i < arr.length && arr[i].includes(host)) {
+            selectedUrl = arr[i];
+            selectedHost = host;
+            break;
+          }
+        }
+        if (selectedUrl) break;
+      }
+
+      finalEmbeds.push({
+        title: null, // à remplir plus tard
+        url: selectedUrl || null,
+        host: selectedHost || null,
+      });
+    }
   }
 
   const titles = await getEpisodeTitles(seasonUrl, customChromiumPath);
@@ -294,7 +319,6 @@ export async function getEmbed(
         episodeCount: maxEpisodes
       }
     };
-
   } else {
     return finalEmbeds;
   }
