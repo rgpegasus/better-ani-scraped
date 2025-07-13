@@ -28,7 +28,7 @@ const crunchyroll = new AnimeScraper('crunchyroll') //for Crunchyroll
 ## `AnimeScraper("animesama")` methods
 
 - [searchAnime](#animesamasearchanimequery-limit--10-wantedlanguages--vostfr-vf-vastfr-wantedtypes--anime-film-page--null)
-- [getSeasons](#animesamagetseasonsanimeurl-language--vostfr)
+- [getSeasons](#animesamagetseasonsanimeurl-language--vostfr-vf-va-vkr-vcn-vqc-vf1-vf2)
 - [getEpisodeTitles](#animesamagetepisodetitlesseasonurl-customchromiumpath)
 - [getEmbed](#animesamagetembedseasonurl-hostpriority--sendvid-sibnet-vidmoly-oneupload-allhost--false-includeinfo--false-customchromiumpath)
 - [getAnimeInfo](#animesamagetanimeinfoanimeurl)
@@ -63,12 +63,12 @@ Searches for anime titles that match the given query.
 
 ---
 
-### `animesama.getSeasons(animeUrl, language = "vostfr")`
-Fetches all available seasons of an anime in the specified language.
+### `animesama.getSeasons(animeUrl, languagePriority = ["vostfr", "vf", "va", "vkr", "vcn", "vqc", "vf1", "vf2"])`
+Fetches all available seasons of an anime in the first valid language specified.
 
 - **Parameters:**
   - `animeUrl` *(string)*: The full URL of the anime.
-  - `language` *(string)*: Language to filter by (default: "vostfr").
+  - `languagePriority` *(string[])*: Array of preferred language.
 - **Returns:**  
   Either an array of season objects:
   ```js

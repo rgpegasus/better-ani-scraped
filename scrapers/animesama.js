@@ -118,61 +118,59 @@ export async function searchAnime(
   return results;
 }
 
-export async function getSeasons(animeUrl, language = "vostfr") {
+export async function getSeasons(animeUrl, languagePriority = ["vostfr", "vf", "va", "vkr", "vcn", "vqc", "vf1", "vf2"]) {
   const res = await axios.get(animeUrl, { headers: getHeaders(CATALOGUE_URL) });
   const html = res.data;
 
-  // Only keep the part before the Kai section
   const mainAnimeOnly = html.split("Anime Version Kai")[0];
-
   const $ = cheerio.load(mainAnimeOnly);
   const scriptTags = $("script")
     .toArray()
-    .filter((script) => {
-      return $(script).html().includes("panneauAnime");
-    });
+    .filter(script => $(script).html().includes("panneauAnime"));
 
   const animeName = animeUrl.split("/")[4];
-  const seasons = [];
-  let languageAvailable = false;
+  let seasons = [];
 
-  for (let script of scriptTags) {
-    const content = $(script).html();
+  for (const language of languagePriority) {
+    seasons = [];
+    let languageAvailable = false;
 
-    // Remove anything inside comments either ("/* */" or "//")
-    const uncommentedContent = content
-      .replace(/\/\*[\s\S]*?\*\//g, "")
-      .replace(/\/\/.*$/gm, "");
+    for (let script of scriptTags) {
+      const content = $(script).html();
 
-    const matches = [
-      ...uncommentedContent.matchAll(/panneauAnime\("([^"]+)", "([^"]+)"\);/g),
-    ];
+      const uncommentedContent = content
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/\/\/.*$/gm, "");
 
-    for (let match of matches) {
-      const title = match[1];
-      const href = match[2].split("/")[0];
-      const fullUrl = `${CATALOGUE_URL}/${animeName}/${href}/${language}`;
+      const matches = [...uncommentedContent.matchAll(/panneauAnime\("([^"]+)", "([^"]+)"\);/g)];
 
-      try {
-        const check = await axios.head(fullUrl, {
-          headers: getHeaders(animeUrl),
-        });
-        if (check.status === 200) {
-          languageAvailable = true;
-          seasons.push({ title, url: fullUrl });
+      for (let match of matches) {
+        const title = match[1];
+        const href = match[2].split("/")[0];
+        const fullUrl = `${CATALOGUE_URL}/${animeName}/${href}/${language}`;
+
+        try {
+          const check = await axios.head(fullUrl, {
+            headers: getHeaders(animeUrl),
+          });
+          if (check.status === 200) {
+            languageAvailable = true;
+            seasons.push({ title, url: fullUrl });
+          }
+        } catch (err) {
+          // Ignore invalid URLs
         }
-      } catch (err) {
-        // Ignore missing URLs
       }
+    }
+
+    if (languageAvailable) {
+      return { language, seasons };
     }
   }
 
-  if (!languageAvailable) {
-    return { error: `Language "${language}" is not available for this anime.` };
-  }
-
-  return seasons;
+  return { error: "No language available in : " + languagePriority.join(", ") };
 }
+
 
 export async function getEpisodeTitles(seasonUrl, customChromiumPath) {
   let browser;
