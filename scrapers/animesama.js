@@ -367,7 +367,7 @@ export async function getAvailableLanguages(
 
   // Iterate over each possible language and check if the page exists
   for (let language of wantedLanguages) {
-    const languageUrl = seasonUrl.replace("vostfr", `${language}`);
+    const languageUrl = seasonUrl.split('/').map((s, i) => i === 6 ? language : s).join('/');
     try {
       const res = await axios.get(languageUrl, {
         headers: getHeaders(CATALOGUE_URL),
