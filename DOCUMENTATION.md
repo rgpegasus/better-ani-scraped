@@ -72,13 +72,17 @@ Fetches all available seasons of an anime in the first valid language specified.
 - **Returns:**  
   Either an array of season objects:
   ```js
-  [
-    { 
-      title: string, 
-      url: string 
-    },
-    ...
-  ]
+  {
+    language: string,
+    seasons: [
+      { 
+        title: string, 
+        url: string 
+      },
+      ...
+    ]
+  }
+  
   ```
   Else, an error object if the language is not available.
 
@@ -164,17 +168,17 @@ Checks which languages are available for a given anime season (Avoid using `numb
   - `wantedLanguages` *(string[])*: Language codes to check (e.g., ["vostfr", "vf", "va", ...]).
   - `numberEpisodes` *(boolean)*: If `true`, also fetches the number of episodes in each language.
 - **Returns:**  
-  Array of objects containing available languages and their episode count:
+  Array of objects containing available languages and their episode count if numberEpisodes is true:
   ```js
   [
     {
       language: string,
-      episodeCount: number //if numberEpisodes = true
+      episodeCount: number 
     },
     ...
   ]
   ```
-
+  Or an array of available languages
 ---
 
 ### `animesama.getAllAnime(wantedLanguages = ["vostfr", "vf", "vastfr"], wantedTypes = ["Anime", "Film"], page = null, output = "anime_list.json", get_seasons = false)`

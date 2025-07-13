@@ -375,7 +375,7 @@ export async function getAvailableLanguages(
           const episodeCount = (await getEmbed(languageUrl)).length;
           languageLinks.push({ language: language.toUpperCase(), episodeCount: episodeCount });
         } else {
-          languageLinks.push({ language: language.toUpperCase()});
+          languageLinks.push(language.toUpperCase());
         }
         
       }
