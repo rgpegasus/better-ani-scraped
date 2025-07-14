@@ -46,12 +46,15 @@ function getHeaders(referer = BASE_URL) {
 export async function searchAnime(
   query,
   limit = 10,
-  wantedLanguages = ["vostfr", "vf", "vastfr"],
-  wantedTypes = ["Anime", "Film"],
+  wantedLanguages = null,
+  wantedTypes = null,
   page = null
 ) {
+  const languages = Array.isArray(wantedLanguages) ? wantedLanguages : ["vostfr", "vf", "vastfr"];
+  const types = Array.isArray(wantedTypes) ? wantedTypes : ["Anime", "Film"];
+
   const isWanted = (text, list) =>
-    list.some(item => text.toLowerCase().includes(item.toLowerCase()));
+    list.length === 0 || list.some(item => text.toLowerCase().includes(item.toLowerCase()));
 
   const results = [];
 
@@ -76,11 +79,11 @@ export async function searchAnime(
       const cover = anchor.find("img").first().attr("src");
 
       const tagText = anchor.find("p").filter((_, p) =>
-        isWanted($(p).text(), wantedTypes)
+        isWanted($(p).text(), types)
       ).first().text();
 
       const languageText = anchor.find("p").filter((_, p) =>
-        isWanted($(p).text(), wantedLanguages)
+        isWanted($(p).text(), languages)
       ).first().text();
 
       const altTitles = altRaw
@@ -92,7 +95,10 @@ export async function searchAnime(
         ? genreRaw.split(",").map((g) => g.trim()).filter(Boolean)
         : [];
 
-      if (title && link && tagText && languageText) {
+      const hasValidType = types.length === 0 || tagText;
+      const hasValidLanguage = languages.length === 0 || languageText;
+
+      if (title && link && hasValidType && hasValidLanguage) {
         results.push({
           title,
           altTitles,
