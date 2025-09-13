@@ -1,7 +1,7 @@
 {
   "name": "better-ani-scraped",
-  "version": "1.6.7",
-  "description": "Scrape anime data from different sources (only anime-sama.fr for the moment)",
+  "version": "1.6.8",
+  "description": "Scrape anime data from different sources (only anime-sama.fr, animepahe and crunchyroll for the moment)",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

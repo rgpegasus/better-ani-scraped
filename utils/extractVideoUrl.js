@@ -53,6 +53,9 @@ export async function getSendvidVideo(embedUrl) {
 
 export async function getVidmolyOrOneuploadVideo(embedUrl) {
   try {
+    if (embedUrl.includes("vidmoly.to/")) {
+      embedUrl = embedUrl.replace("vidmoly.to/", "vidmoly.net/");
+    }
     console.log(embedUrl)
     const { data } = await axios.get(embedUrl, {
       headers: getHeaders(embedUrl),

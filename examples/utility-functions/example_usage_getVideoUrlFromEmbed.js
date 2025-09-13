@@ -3,7 +3,7 @@ import { getVideoUrlFromEmbed } from "../../index.js"; // REPLACE BY "from 'bett
 const main = async () => {
   const embedUrlSibnet = "https://video.sibnet.ru/shell.php?videoid=4291083";
   const embedUrlSendvid = "https://sendvid.com/embed/4vzpcb0q";
-  const embedUrlVidmoly = "https://vidmoly.to/embed-vt374ef2joph.html";
+  const embedUrlVidmoly = "https://vidmoly.to/embed-rvqrwg5zk37w.html";
   const embedUrlOneupload = "https://oneupload.net/embed-axdrxh1y3p37.html";
 
   const videoUrlSibnet = await getVideoUrlFromEmbed("sibnet", embedUrlSibnet)
