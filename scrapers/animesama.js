@@ -4,6 +4,7 @@ import fs from "fs";
 import path from 'path';
 import { exec as execCallback } from 'child_process';
 import { promisify } from 'util';
+import { title } from "process";
 const execAsync = promisify(execCallback);
  
 
@@ -36,18 +37,12 @@ async function ensureChromiumInstalled(customPath) {
 }
 
 function getHeaders(referer = BASE_URL) {
-  const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' + '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
   return {
-    headers: {
-      "User-Agent": userAgent,
-      "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
-      "Referer": referer,
-    },
-    userAgent
+    "User-Agent": "Mozilla/5.0",
+    "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
+    Referer: referer,
   };
 }
-
-
 
 export async function searchAnime(
   query,
@@ -59,7 +54,6 @@ export async function searchAnime(
   const languages = Array.isArray(wantedLanguages) ? wantedLanguages : ["vostfr", "vf", "vastfr"];
   const types = Array.isArray(wantedTypes) ? wantedTypes : ["Anime", "Film"];
 
-  const { headers } = getHeaders(CATALOGUE_URL);
   const isWanted = (text, list) =>
     list.length === 0 || list.some(item => text.toLowerCase().includes(item.toLowerCase()));
 
@@ -71,7 +65,7 @@ export async function searchAnime(
         ? `${CATALOGUE_URL}/?search=${encodeURIComponent(query)}`
         : `${CATALOGUE_URL}/?search=${encodeURIComponent(query)}&page=${pageNum}`;
 
-    const res = await axios.get(url, { headers: headers });
+    const res = await axios.get(url, { headers: getHeaders(CATALOGUE_URL) });
     const $ = cheerio.load(res.data);
 
     const containers = $("a.flex.divide-x");
@@ -131,17 +125,26 @@ export async function searchAnime(
   return results;
 }
 
-export async function getSeasons(animeUrl, languagePriority = ["vostfr", "vf", "va", "vkr", "vcn", "vqc", "vf1", "vf2"]) {
-  const { headersCatalog } = getHeaders(CATALOGUE_URL);
-  const { headersAnime } = getHeaders(animeUrl);
-  const res = await axios.get(animeUrl, { headers: headersCatalog });
+export async function getSeasons(animeUrl, languagePriority = ["vostfr", "vf", "va", "vkr", "vcn", "vqc", "vf1", "vf2"], wantedTypes=["Anime", "Kai", "Scans"]) {
+  const res = await axios.get(animeUrl, { headers: getHeaders(CATALOGUE_URL) });
   const html = res.data;
-
-  const mainAnimeOnly = html.split("Anime Version Kai")[0];
+  let mainAnimeOnly = html;
+  if (wantedTypes.length !== 0) {
+    if (!wantedTypes.includes("Anime")) {
+      mainAnimeOnly = mainAnimeOnly.replace(/<h2.*?>Anime<\/h2>[\s\S]*?(?=<h2|$)/g, '');
+    }
+    if (!wantedTypes.includes("Kai")) {
+      mainAnimeOnly = mainAnimeOnly.replace(/<h2.*?>Anime Version Kai<\/h2>[\s\S]*?(?=<h2|$)/g, '');
+    }
+    if (!wantedTypes.includes("Scans")) {
+      mainAnimeOnly = mainAnimeOnly.replace(/<h2.*?>Manga<\/h2>[\s\S]*?(?=<h2|$)/g, '');
+    }
+  }
+  
   const $ = cheerio.load(mainAnimeOnly);
   const scriptTags = $("script")
     .toArray()
-    .filter(script => $(script).html().includes("panneauAnime"));
+    .filter(script => ["panneauAnime", "panneauScan"].some(str => $(script).html().includes(str)));
 
   const animeName = animeUrl.split("/")[4];
   let seasons = [];
@@ -149,7 +152,7 @@ export async function getSeasons(animeUrl, languagePriority = ["vostfr", "vf", "
   for (const language of languagePriority) {
     seasons = [];
     let languageAvailable = false;
-
+    let scansLanguage = "";
     for (let script of scriptTags) {
       const content = $(script).html();
 
@@ -157,38 +160,53 @@ export async function getSeasons(animeUrl, languagePriority = ["vostfr", "vf", "
         .replace(/\/\*[\s\S]*?\*\//g, "")
         .replace(/\/\/.*$/gm, "");
 
-      const matches = [...uncommentedContent.matchAll(/panneauAnime\("([^"]+)", "([^"]+)"\);/g)];
+      const matches = [...uncommentedContent.matchAll(/(panneauAnime|panneauScan)\("([^"]+)", "([^"]+)"\);/g)];
 
       for (let match of matches) {
-        const title = match[1];
-        const href = match[2].split("/")[0];
-        const fullUrl = `${CATALOGUE_URL}/${animeName}/${href}/${language}`;
+        const type = match[1]; 
+        const title = match[2];
+        const href = match[3].split("/")[0];
 
-      try {
-        const check = await axios.head(fullUrl, {
-          headers: headersAnime,
-        });
-        if (check.status === 200) {
-          languageAvailable = true;
-          seasons.push({ title, url: fullUrl });
+        if (type === "panneauScan") {
+          let found = false;
+          for (const lang of languagePriority) {
+            const fullUrl = `${CATALOGUE_URL}/${animeName}/${href}/${lang}`;
+            try {
+              const check = await axios.head(fullUrl, { headers: getHeaders(animeUrl) });
+              if (check.status === 200) {
+                seasons.push({ title, url: fullUrl });
+                scansLanguage = lang
+                found = true;
+                break; 
+              }
+            } catch {}
+          }
+          if (found) languageAvailable = true;
+        } else {
+          const fullUrl = `${CATALOGUE_URL}/${animeName}/${href}/${language}`;
+          try {
+            const check = await axios.head(fullUrl, { headers: getHeaders(animeUrl) });
+            if (check.status === 200) {
+              seasons.push({ title, url: fullUrl });
+              languageAvailable = true;
+            }
+          } catch {}
         }
-      } catch (err) {
-        // Ignore missing URLs
       }
     }
-  }
-
-    if (languageAvailable) {
+    if (wantedTypes.includes("Scans") && wantedTypes.length==1 && scansLanguage) {
+      return { scansLanguage, seasons };
+    }
+    else if (languageAvailable) {
       return { language, seasons };
     }
   }
 
-  return { error: "No language available in : " + languagePriority.join(", ") };
+  return [];
 }
 
 
 export async function getEpisodeTitles(seasonUrl, customChromiumPath) {
-  const { headers, userAgent } = getHeaders(seasonUrl);
   let browser;
   try {
     const puppeteer = await import('puppeteer');
@@ -205,7 +223,7 @@ export async function getEpisodeTitles(seasonUrl, customChromiumPath) {
     });
 
     const page = await browser.newPage();
-    await page.setExtraHTTPHeaders(headers);
+    await page.setExtraHTTPHeaders(getHeaders(seasonUrl));
     await page.setRequestInterception(true);
     page.on('request', (req) => {
       const blocked = ['image', 'stylesheet', 'font', 'media'];
@@ -215,7 +233,7 @@ export async function getEpisodeTitles(seasonUrl, customChromiumPath) {
         req.continue();
       }
     });
-    await page.setUserAgent(userAgent);
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' + '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
     await page.evaluateOnNewDocument(() => {
       Object.defineProperty(navigator, 'webdriver', { get: () => false });
     });
@@ -244,10 +262,8 @@ export async function getEmbed(
   includeInfo = false, 
   customChromiumPath
 ) {
-  const { headersSplit } = getHeaders(seasonUrl.split("/").slice(0, 5).join("/"));
-  const { headers } = getHeaders(seasonUrl);
   const res = await axios.get(seasonUrl, {
-    headers: headersSplit,
+    headers: getHeaders(seasonUrl.split("/").slice(0, 5).join("/")),
   });
 
   const $ = cheerio.load(res.data);
@@ -265,10 +281,10 @@ export async function getEmbed(
     : seasonUrl + "/" + scriptTag;
 
   const episodesJs = await axios
-    .get(scriptUrl, { headers: headers })
+    .get(scriptUrl, { headers: getHeaders(seasonUrl) })
     .then((r) => r.data);
 
-  const matches = [...episodesJs.matchAll(/var\s+(eps\d+)\s*=\s*(\[[^\]]+\])/g)];
+  const matches = [...episodesJs.toLowerCase().matchAll(/var\s+(eps\d+)\s*=\s*(\[[^\]]+\])/g)];
   if (!matches.length) throw new Error("No episode arrays found");
 
   let episodeMatrix = [];
@@ -291,18 +307,18 @@ export async function getEmbed(
 
       for (const host of hostPriority) {
         for (const arr of episodeMatrix) {
-          if (i < arr.length && arr[i].includes(host)) {
-            if (!hosts.includes(host)) {
+          if (i < arr.length && arr[i].includes(host.toLowerCase())) {
+            if (!hosts.includes(host.toLowerCase())) {
               urls.push(arr[i]);
-              hosts.push(host);
+              hosts.push(host.toLowerCase());
             }
-            break; // une seule URL par host
+            break;
           }
         }
       }
 
       finalEmbeds.push({
-        title: null, // à remplir plus tard
+        title: null, 
         url: urls.length ? urls : null,
         host: hosts.length ? hosts : null,
       });
@@ -313,22 +329,22 @@ export async function getEmbed(
 
       for (const host of hostPriority) {
         for (const arr of episodeMatrix) {
-          if (i < arr.length && arr[i].includes(host)) {
+          if (i < arr.length && arr[i].includes(host.toLowerCase())) {
             selectedUrl = arr[i];
-            selectedHost = host;
+            selectedHost = host.toLowerCase();
             break;
           }
         }
         if (selectedUrl) break;
       }
 
-    finalEmbeds.push({
-      title: null, 
-      url: selectedUrl || null,
-      host: selectedHost || null
-    });
+      finalEmbeds.push({
+        title: null, 
+        url: selectedUrl || null,
+        host: selectedHost || null,
+      });
+    }
   }
-}
 
   const titles = await getEpisodeTitles(seasonUrl, customChromiumPath);
   finalEmbeds.forEach((embed, i) => {
@@ -351,8 +367,7 @@ export async function getEmbed(
 
 
 export async function getAnimeInfo(animeUrl) {
-  const { headers } = getHeaders(CATALOGUE_URL);
-  const res = await axios.get(animeUrl, { headers: headers });
+  const res = await axios.get(animeUrl, { headers: getHeaders(CATALOGUE_URL) });
   const $ = cheerio.load(res.data);
 
   const cover = $("#coverOeuvre").attr("src");
@@ -388,7 +403,6 @@ export async function getAvailableLanguages(
   wantedLanguages = ["vostfr", "vf", "va", "vkr", "vcn", "vqc", "vf1", "vf2"],
   numberEpisodes = false
 ) {
-  const { headers } = getHeaders(CATALOGUE_URL);
   const languageLinks = [];
 
   // Iterate over each possible language and check if the page exists
@@ -396,7 +410,7 @@ export async function getAvailableLanguages(
     const languageUrl = seasonUrl.split('/').map((s, i) => i === 6 ? language : s).join('/');
     try {
       const res = await axios.get(languageUrl, {
-        headers: headers,
+        headers: getHeaders(CATALOGUE_URL),
       });
       if (res.status === 200) {
         if (numberEpisodes){
@@ -422,7 +436,6 @@ export async function getAllAnime(
   output = "anime_list.json",
   get_seasons = false
 ) {
-  const { headers } = getHeaders(CATALOGUE_URL);
   let animeLinks = [];
 
   const isWanted = (text, list) =>
@@ -430,30 +443,39 @@ export async function getAllAnime(
 
   const fetchPage = async (pageNum) => {
     const url = pageNum === 1 ? CATALOGUE_URL : `${CATALOGUE_URL}?page=${pageNum}`;
-    const res = await axios.get(url, { headers: headers });
+    const res = await axios.get(url, { headers: getHeaders(CATALOGUE_URL) });
     const $ = cheerio.load(res.data);
-  
+
     const containers = $("div.shrink-0.m-3.rounded.border-2");
-  
+
     containers.each((_, el) => {
       const anchor = $(el).find("a");
       const title = anchor.find("h1").text().trim();
       const link = anchor.attr("href");
       const img = anchor.find("img").attr("src");
-  
+
       const paragraphs = anchor.find("p").toArray().map(p => $(p).text().trim());
-  
+
       const altTitles = paragraphs[0] ? paragraphs[0].split(',').map(name => name.trim()) : [];
       const genres = paragraphs[1] ? paragraphs[1].split(',').map(genre => genre.trim()) : [];
       const type = paragraphs[2] ? paragraphs[2].split(',').map(t => t.trim()) : [];
       const language = paragraphs[3] ? paragraphs[3].split(',').map(lang => lang.trim()) : [];
-      const filteredTypes = type.filter(t => isWanted(t, wantedTypes));
-      const filteredLanguages = language.filter(lang => isWanted(lang, wantedLanguages));
+
+      const filteredTypes = wantedTypes.length === 0
+        ? type
+        : type.filter(t => isWanted(t, wantedTypes));
+
+      const hasScans = filteredTypes.some(t => t.toLowerCase() === "scans".toLowerCase());
+
+      const filteredLanguages = (wantedLanguages.length === 0 || hasScans)
+        ? language
+        : language.filter(lang => isWanted(lang, wantedLanguages));
+
       if (
         title &&
         link &&
         filteredTypes.length > 0 &&
-        filteredLanguages.length > 0
+        (filteredLanguages.length > 0 || hasScans)
       ) {
         const fullUrl = link.startsWith("http") ? link : `${BASE_URL}${link}`;
         animeLinks.push({
@@ -467,10 +489,10 @@ export async function getAllAnime(
         });
       }
     });
-  
+
     return containers.length > 0;
   };
-  
+
   const enrichWithSeasons = async (list) => {
     for (const anime of list) {
       try {
@@ -509,8 +531,7 @@ export async function getAllAnime(
 
 export async function getLatestEpisodes(languageFilter = null) {
   try {
-    const { headers } = getHeaders(BASE_URL);
-    const res = await axios.get(BASE_URL, { headers: headers });
+    const res = await axios.get(BASE_URL, { headers: getHeaders() });
     const $ = cheerio.load(res.data);
 
     const container = $("#containerAjoutsAnimes");
@@ -522,7 +543,7 @@ export async function getLatestEpisodes(languageFilter = null) {
       const cover = $(el).find("img").attr("src");
 
       const buttons = $(el).find("button");
-      const language = $(buttons[0]).text().trim().toLowerCase(); 
+      const language = $(buttons[0]).text().trim().toLowerCase(); // Normalisation
       const episode = $(buttons[1]).text().trim();
 
       if (
@@ -550,17 +571,64 @@ export async function getLatestEpisodes(languageFilter = null) {
   }
 }
 
+export async function getLatestScans(languageFilter = null) {
+  try {
+    const res = await axios.get(BASE_URL, { headers: getHeaders() });
+    const $ = cheerio.load(res.data);
+
+    const container = $("#containerAjoutsScans");
+    const scans = [];
+
+    container.find("a").each((_, el) => {
+      const url = $(el).attr("href");
+      const title = $(el).find("h1").text().trim();
+      const cover = $(el).find("img").attr("src");
+
+      const buttons = $(el).find("button");
+      const type = $(buttons[0]).text().trim().toLowerCase();
+      const language = url.split("/").slice(6, 7)[0];
+      const chapter = $(buttons[2]).text().trim();
+
+      if (
+        title &&
+        url &&
+        cover &&
+        type &&
+        language &&
+        chapter &&
+        (languageFilter === null ||
+          languageFilter
+            .map((l) => l.toLowerCase())
+            .includes(language.toLowerCase()))
+      ) {
+        scans.push({
+          title,
+          url,
+          cover,
+          type,
+          language,
+          chapter,
+        });
+      }
+    });
+
+    return scans;
+  } catch (err) {
+    console.error("Failed to fetch today scans:", err.message);
+    return [];
+  }
+}
+
 export async function getRandomAnime(
   wantedLanguages = ["vostfr", "vf", "vastfr"],
   wantedTypes = ["Anime", "Film"],
   maxAttempts = null,
   attempt = 0
 ) {
-  const { headers } = getHeaders(CATALOGUE_URL);
   try {
     const res = await axios.get(
       `${CATALOGUE_URL}/?search=&random=1`,
-      { headers:headers }
+      { headers: getHeaders(CATALOGUE_URL) }
     );
 
     const $ = cheerio.load(res.data);
@@ -627,3 +695,31 @@ export async function getRandomAnime(
   }
 }
 
+
+export async function getAllTitleScans(mangaUrl, numberImg = false) {
+  const res = await axios.get(mangaUrl, { headers: getHeaders() });
+  const $ = cheerio.load(res.data);
+
+  const title = encodeURIComponent($("#titreOeuvre").text().trim());
+  const urlInfo = `https://anime-sama.fr/s2/scans/get_nb_chap_et_img.php?oeuvre=${title}`
+  const infoPage = await axios.get(urlInfo, { headers: getHeaders() });
+  const titleChapter = Object.keys(infoPage.data)
+
+  if (numberImg) {
+    return {scans :infoPage.data, mangaTitle :title}
+  } else {
+    return titleChapter
+  }
+}
+
+export async function getImgScans(mangaUrl, wantedChapter) {
+  const infoScan = await getAllTitleScans(mangaUrl, true)
+  const numberImg = infoScan.scans[wantedChapter.toString()];
+  const mangaTitle = infoScan.mangaTitle
+  const imgUrls = [];
+  for (let i = 1; i <= numberImg; i++) {
+    imgUrls.push(`https://anime-sama.fr/s2/scans/${mangaTitle}/${wantedChapter}/${i}.jpg`);
+  }
+
+  return imgUrls
+}

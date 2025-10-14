@@ -10,6 +10,9 @@ export async function getVideoUrlFromEmbed(source, embedUrl) {
   if (source === "vidmoly" || source === "oneupload" ) { 
     return await extractor.getVidmolyOrOneuploadVideo(embedUrl);
   }
+  if (source === "movearnpre" || source === "smoothpre" ) { 
+    return await extractor.getMovearnpreOrSmoothpreVideo(embedUrl);
+  }
 
   throw new Error(`Unsupported embed source: ${source}`);
 }

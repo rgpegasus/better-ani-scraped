@@ -35,7 +35,11 @@ const crunchyroll = new AnimeScraper('crunchyroll') //for Crunchyroll
 - [getAvailableLanguages](#animesamagetavailablelanguagesseasonurl-wantedlanguages--vostfr-vf-va-vkr-vcn-vqc-vf1-vf2-numberepisodes--false)
 - [getAllAnime](#animesamagetallanimewantedlanguages--vostfr-vf-vastfr-wantedtypes--anime-film-page--null-output--anime_listjson-get_seasons--false)
 - [getLatestEpisodes](#animesamagetlatestepisodeslanguagefilter--null)
+- [getLatestScans](#animesamagetlatestscanslanguagefilter--null)
 - [getRandomAnime](#animesamagetrandomanimewantedlanguages--vostfr-vf-vastfr-wantedtypes--anime-film-maxattempts--null-attempt--0)
+- [getAllTitleScans](#animesamagetalltitlescansmangaurl-numberimg--false)
+- [getImgScans](#animesamagetimgscansmangaurl-wantedchapter)
+
 
 ### `animesama.searchAnime(query, limit = 10, wantedLanguages = ["vostfr", "vf", "vastfr"], wantedTypes = ["Anime", "Film"], page = null)`
 Searches for anime titles that match the given query.
@@ -232,6 +236,30 @@ Scrapes the latest released episodes, optionally filtered by language.
 
 ---
 
+### `animesama.getLatestScans(languageFilter = null)`
+Scrapes the latest released episodes, optionally filtered by language.
+
+- **Parameters:**
+  - `languageFilter` *(string[]|null)*: If set, filters episodes by language in the array. If null, returns all scans. 
+- **Returns:**  
+  Array of scans objects:
+  ```js
+  [
+    {
+      title: string,
+      url: string,
+      cover: string,
+      type: string,
+      language: string,
+      chapter: string
+    }
+  ...
+  ]
+  ```
+
+---
+
+
 ### `animesama.getRandomAnime(wantedLanguages = ["vostfr", "vf", "vastfr"], wantedTypes = ["Anime", "Film"], maxAttempts = null, attempt = 0)`
 Fetches a random anime from the catalogue.
 
@@ -254,6 +282,40 @@ Fetches a random anime from the catalogue.
 
 ---
 
+### `animesama.getAllTitleScans(mangaUrl, numberImg = false)`
+Scrapes all the scans of a chapter.
+
+- **Parameters:**
+  - `mangaUrl` *(string)*: The manga URL.
+  - `numberImg` *(boolean)*: If `true`, indicates the number of images in each chapter.
+- **Returns:**  
+  An array of chapter titles if *numberImg = false* 
+  Else : 
+  ```js
+  {
+    scans :
+    [
+      {
+        title: string,
+        url: string, 
+      },
+      ...
+    ]
+    mangaTitle: string,
+  }
+
+---
+
+### `animesama.getImgScans(mangaUrl, wantedChapter)`
+Scrapes all the scans of a chapter.
+
+- **Parameters:**
+  - `mangaUrl` *(string)*: The manga URL.
+  - `wantedChapter` *(int)*: The number of the chapter you want.
+- **Returns:**  
+  An array of image URL.
+
+---
 
 ## `AnimeScraper("animepahe")` methods
 

@@ -60,7 +60,6 @@ export async function getVidmolyOrOneuploadVideo(embedUrl) {
     const { data } = await axios.get(embedUrl, {
       headers: getHeaders(embedUrl),
     });
-    console.log(data)
     const $ = cheerio.load(data);
     const scripts = $("script");
 
@@ -76,4 +75,29 @@ export async function getVidmolyOrOneuploadVideo(embedUrl) {
     console.error("Erreur getVidmolyVideo:", err.message);
     return null;
   }
+}
+
+import puppeteer from 'puppeteer';
+
+export async function getMovearnpreOrSmoothpreVideo(embedUrl) {
+  const browser = await puppeteer.launch({ headless: true });
+  const page = await browser.newPage();
+
+  await page.setUserAgent(
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36"
+  );
+
+  await page.goto(embedUrl, { waitUntil: 'networkidle2' });
+
+  await page.waitForFunction('typeof jwplayer !== "undefined"');
+
+  const videoUrl = await page.evaluate(() => {
+    const player = jwplayer();
+    const sources = player?.getPlaylist()?.[0]?.sources;
+    return sources?.[0]?.file || null;
+  });
+
+  await browser.close();
+  const finalUrl = embedUrl.split("/").slice(0, 3).join("/") + videoUrl
+  return finalUrl;
 }
