@@ -3,8 +3,8 @@ import { AnimeScraper } from "../../index.js"; // REPLACE BY "from 'better-ani-s
 const main = async () => {
   const animesama = new AnimeScraper('animesama');
 
-  const random_episode = await animesama.getRandomAnime(["vostfr", "vf", "vastfr"], ["Anime", "Film"], 10);
-  console.log(random_episode);
+  const randomEpisode = await animesama.getRandomAnime(["vostfr", "vf"], ["Anime", "Film", "Scans"], 10);
+  console.log("Random Episode: ",randomEpisode);
 };
 
 main().catch(console.error);

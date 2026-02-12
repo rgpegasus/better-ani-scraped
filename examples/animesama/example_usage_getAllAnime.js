@@ -3,8 +3,8 @@ import { AnimeScraper } from "../../index.js"; // REPLACE BY "from 'better-ani-s
 const main = async () => {
   const animesama = new AnimeScraper('animesama');
 
-  const catalogue = await animesama.getAllAnime(["vostfr", "vf", "vastfr"], ["Anime", "Film", "Scans"], 1);
-  console.log(catalogue)
+  const catalogue = await animesama.getAllAnime(["vostfr", "vf"], ["Anime", "Film", "Scans"], 1);
+  console.log("Catalogue: ",catalogue)
 };
 
 main().catch(console.error);

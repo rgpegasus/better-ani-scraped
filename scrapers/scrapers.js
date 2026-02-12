@@ -12,19 +12,28 @@ export class AnimeScraper {
       this.source = crunchyroll;
     } else {
       throw new Error(
-        'Invalid source. Choose either "animepahe", "crunchyroll" or "animesama".'
+        'Invalid source. Choose either "animepahe", "crunchyroll" or "animesama".',
       );
     }
   }
-
+  async getWorkingUrl(listUrl) {
+    try {
+      return await this.source.getWorkingUrl(listUrl);
+    } catch (error) {
+      console.error(
+        `This scraper does not have the getWorkingUrl function implemented or an error happened -> ${error}`,
+      );
+      return "";
+    }
+  }
   async searchAnime(query, ...rest) {
     try {
       return await this.source.searchAnime(query, ...rest);
     } catch (error) {
       console.error(
-        `This scraper does not have the searchAnime function implemented or an error happened -> ${error}`
+        `This scraper does not have the searchAnime function implemented or an error happened -> ${error}`,
       );
-      return null;
+      return [];
     }
   }
 
@@ -33,9 +42,9 @@ export class AnimeScraper {
       return await this.source.getSeasons(animeUrl, ...rest);
     } catch (error) {
       console.error(
-        `This scraper does not have the getSeasons function implemented or an error happened -> ${error}`
+        `This scraper does not have the getSeasons function implemented or an error happened -> ${error}`,
       );
-      return null;
+      return [];
     }
   }
 
@@ -44,9 +53,9 @@ export class AnimeScraper {
       return await this.source.getEpisodeTitles(seasonUrl, ...rest);
     } catch (error) {
       console.error(
-        `This scraper does not have the getEpisodeTitles function implemented or an error happened -> ${error}`
+        `This scraper does not have the getEpisodeTitles function implemented or an error happened -> ${error}`,
       );
-      return null;
+      return [];
     }
   }
 
@@ -55,19 +64,9 @@ export class AnimeScraper {
       return await this.source.getEmbed(seasonUrl, ...rest);
     } catch (error) {
       console.error(
-        `This scraper does not have the getEmbed function implemented or an error happened -> ${error}`
+        `This scraper does not have the getEmbed function implemented or an error happened -> ${error}`,
       );
-      return null;
-    }
-  }
-  async getEmbed(seasonUrl, ...rest) {
-    try {
-      return await this.source.getEmbed(seasonUrl, ...rest);
-    } catch (error) {
-      console.error(
-        `This scraper does not have the getEmbed function implemented or an error happened -> ${error}`
-      );
-      return null;
+      return [];
     }
   }
 
@@ -76,9 +75,9 @@ export class AnimeScraper {
       return await this.source.getAnimeInfo(animeUrl);
     } catch (error) {
       console.error(
-        `This scraper does not have the getAnimeInfo function implemented or an error happened -> ${error}`
+        `This scraper does not have the getAnimeInfo function implemented or an error happened -> ${error}`,
       );
-      return null;
+      return {};
     }
   }
 
@@ -87,9 +86,9 @@ export class AnimeScraper {
       return await this.source.getAvailableLanguages(animeUrl, ...rest);
     } catch (error) {
       console.error(
-        `This scraper does not have the getAvailableLanguages function implemented or an error happened -> ${error}`
+        `This scraper does not have the getAvailableLanguages function implemented or an error happened -> ${error}`,
       );
-      return null;
+      return [];
     }
   }
 
@@ -98,9 +97,9 @@ export class AnimeScraper {
       return await this.source.getAllAnime(...rest);
     } catch (error) {
       console.error(
-        `This scraper does not have the getAllAnime function implemented or an error happened -> ${error}`
+        `This scraper does not have the getAllAnime function implemented or an error happened -> ${error}`,
       );
-      return null;
+      return [];
     }
   }
 
@@ -109,9 +108,9 @@ export class AnimeScraper {
       return await this.source.getLatestEpisodes(...rest);
     } catch (error) {
       console.error(
-        `This scraper does not have the getLatestEpisodes function implemented or an error happened -> ${error}`
+        `This scraper does not have the getLatestEpisodes function implemented or an error happened -> ${error}`,
       );
-      return null;
+      return [];
     }
   }
 
@@ -120,9 +119,9 @@ export class AnimeScraper {
       return await this.source.getLatestScans(...rest);
     } catch (error) {
       console.error(
-        `This scraper does not have the getLatestScans function implemented or an error happened -> ${error}`
+        `This scraper does not have the getLatestScans function implemented or an error happened -> ${error}`,
       );
-      return null;
+      return [];
     }
   }
   async getRandomAnime(...rest) {
@@ -130,9 +129,9 @@ export class AnimeScraper {
       return await this.source.getRandomAnime(...rest);
     } catch (error) {
       console.error(
-        `This scraper does not have the getRandomAnime function implemented or an error happened -> ${error}`
+        `This scraper does not have the getRandomAnime function implemented or an error happened -> ${error}`,
       );
-      return null;
+      return [];
     }
   }
 
@@ -141,30 +140,34 @@ export class AnimeScraper {
       return await this.source.getEpisodeInfo(animeUrl, ...rest);
     } catch (error) {
       console.error(
-        `This scraper does not have the getEpisodeInfo function implemented or an error happened -> ${error}`
+        `This scraper does not have the getEpisodeInfo function implemented or an error happened -> ${error}`,
       );
-      return null;
+      return [];
+    }
+  }
+  async getChapterTitles(mangaUrl, includeNumberImg, includeEncodedTitle, ...rest) {
+    try {
+      return await this.source.getChapterTitles(mangaUrl, includeNumberImg, includeEncodedTitle, ...rest);
+    } catch (error) {
+      console.error(
+        `This scraper does not have the getAllTitleScans function implemented or an error happened -> ${error}`,
+      );
+      if (includeEncodedTitle) {
+        return {};
+      } else {
+        return [];
+      }
     }
   }
 
-  async getAllTitleScans(mangaUrl, ...rest) {
-    try {
-      return await this.source.getAllTitleScans(mangaUrl, ...rest);
-    } catch (error) {
-      console.error(
-        `This scraper does not have the getAllTitleScans function implemented or an error happened -> ${error}`
-      );
-      return null;
-    }
-  }
   async getImgScans(mangaUrl, ...rest) {
     try {
       return await this.source.getImgScans(mangaUrl, ...rest);
     } catch (error) {
       console.error(
-        `This scraper does not have the getImgScans function implemented or an error happened -> ${error}`
+        `This scraper does not have the getImgScans function implemented or an error happened -> ${error}`,
       );
-      return null;
+      return [];
     }
   }
 }

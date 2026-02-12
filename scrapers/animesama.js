@@ -1,15 +1,72 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
 import fs from "fs";
-import path from 'path';
-import { exec as execCallback } from 'child_process';
-import { promisify } from 'util';
-import { title } from "process";
-const execAsync = promisify(execCallback);
- 
+import path from "path";
+import { promisify } from "util";
+import { exec as execCallback } from "child_process";
+import puppeteerExtra from "puppeteer-extra";
+import StealthPlugin from "puppeteer-extra-plugin-stealth";
+import { URL } from "url";
 
-const BASE_URL = "https://anime-sama.fr";
-const CATALOGUE_URL = `${BASE_URL}/catalogue`; 
+const execAsync = promisify(execCallback);
+puppeteerExtra.use(StealthPlugin());
+
+const LIST_URL = "https://anime-sama.pw";
+
+export async function getWorkingUrl(listUrl = LIST_URL) {
+  const res = await axios.get(listUrl);
+  const $ = cheerio.load(res.data);
+  const btn = $(".btn-primary").attr("href");
+  if (!btn) return null;
+  let href = new URL(btn, listUrl).href;
+  if (href.endsWith("/")) {
+    href = href.slice(0, -1);
+  }
+
+  try {
+    await axios.get(href, {
+      maxRedirects: 0,
+      responseType: "stream",
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+      },
+    });
+  } catch (err) {
+    const response = err.response;
+    if (response?.status === 302) {
+      let location = response.headers.location;
+      let redirectedUrl = new URL(location, href).href;
+      if (redirectedUrl.endsWith("/")) {
+        redirectedUrl = redirectedUrl.slice(0, -1);
+      }
+      return redirectedUrl;
+    }
+    throw err;
+  }
+  return href;
+}
+
+let BASE_URL;
+let CATALOGUE_URL;
+
+async function init() {
+  BASE_URL = await getWorkingUrl();
+  CATALOGUE_URL = `${BASE_URL}/catalogue`;
+}
+
+function getHeaders(referer = BASE_URL) {
+  return {
+    "User-Agent": "Mozilla/5.0",
+    "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
+    Referer: referer,
+  };
+}
+function isWanted(text, list) {
+  return (
+    list.length === 0 ||
+    list.some((item) => text.toLowerCase().includes(item.toLowerCase()))
+  );
+}
 
 async function ensureChromiumInstalled(customPath) {
   if (customPath) {
@@ -22,102 +79,155 @@ async function ensureChromiumInstalled(customPath) {
   }
   const basePath = path.join(
     process.env.HOME || process.env.USERPROFILE,
-    '.cache',
-    'puppeteer',
-    'chrome'
+    ".cache",
+    "puppeteer",
+    "chrome",
   );
-  const chromiumPath = path.join(basePath, 'win64-135.0.7049.95', 'chrome-win64', 'chrome.exe');
+  const chromiumPath = path.join(
+    basePath,
+    "win64-135.0.7049.95",
+    "chrome-win64",
+    "chrome.exe",
+  );
 
   if (!fs.existsSync(chromiumPath)) {
     console.log("📦 Downloading Chromium 135.0.7049.95...");
-    await execAsync('npx puppeteer browsers install chrome@135.0.7049.95');
+    await execAsync("npx puppeteer browsers install chrome@135.0.7049.95");
   }
 
   return chromiumPath;
 }
-
-function getHeaders(referer = BASE_URL) {
-  return {
-    "User-Agent": "Mozilla/5.0",
-    "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
-    Referer: referer,
-  };
-}
+let allAvailableLanguages = [
+  "vostfr",
+  "vf",
+  "va",
+  "vkr",
+  "vcn",
+  "vqc",
+  "vf1",
+  "vf2",
+];
+let mainAvailableLanguages = ["vostfr", "vf", "vastfr"];
+let allAvailableTypes = ["Anime", "Film", "Scans", "Autres"];
 
 export async function searchAnime(
   query,
   limit = 10,
-  wantedLanguages = null,
-  wantedTypes = null,
-  page = null
+  wantedLanguages = mainAvailableLanguages,
+  wantedTypes = allAvailableTypes,
+  wantedPage = 1,
 ) {
-  const languages = Array.isArray(wantedLanguages) ? wantedLanguages : ["vostfr", "vf", "vastfr"];
-  const types = Array.isArray(wantedTypes) ? wantedTypes : ["Anime", "Film"];
-
-  const isWanted = (text, list) =>
-    list.length === 0 || list.some(item => text.toLowerCase().includes(item.toLowerCase()));
-
+  await init();
   const results = [];
-
+  const fetchHtml = async (url) => {
+    const res = await axios.get(url, { headers: getHeaders(CATALOGUE_URL) });
+    return res.data;
+  };
   const fetchPage = async (pageNum) => {
-    const url =
+    const searchUrl =
       pageNum === 1
         ? `${CATALOGUE_URL}/?search=${encodeURIComponent(query)}`
         : `${CATALOGUE_URL}/?search=${encodeURIComponent(query)}&page=${pageNum}`;
-
-    const res = await axios.get(url, { headers: getHeaders(CATALOGUE_URL) });
-    const $ = cheerio.load(res.data);
-
-    const containers = $("a.flex.divide-x");
+    const html = await fetchHtml(searchUrl);
+    const $ = cheerio.load(html);
+    const containers = $("div.catalog-card > a");
 
     containers.each((_, el) => {
       if (results.length >= limit) return false;
 
       const anchor = $(el);
-      const link = anchor.attr("href");
-      const title = anchor.find("h1").first().text().trim();
-      const altRaw = anchor.find("p.text-xs.opacity-40.italic").first().text().trim();
+      const url = anchor.attr("href");
+      const title = anchor.find("h2").first().text().trim();
+      const altRaw = anchor.find("p").first().text().trim();
+      const genreRaw = anchor.find("p.info-value").first().text().trim();
       const cover = anchor.find("img").first().attr("src");
-
-      const tagText = anchor.find("p").filter((_, p) =>
-        isWanted($(p).text(), types)
-      ).first().text();
-
-      const languageText = anchor.find("p").filter((_, p) =>
-        isWanted($(p).text(), languages)
-      ).first().text();
+      const synopsis = anchor
+        .find("div.synopsis-content")
+        .first()
+        .text()
+        .trim();
 
       const altTitles = altRaw
-        ? altRaw.split(",").map((t) => t.trim()).filter(Boolean)
+        ? altRaw
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean)
         : [];
+      const genres = genreRaw?.includes(",")
+        ? genreRaw
+            .split(",")
+            .map((g) => g.trim())
+            .filter(Boolean)
+        : genreRaw?.includes("-")
+          ? genreRaw
+              .split("-")
+              .map((g) => g.trim())
+              .filter(Boolean)
+          : [];
+      const typesRaw = anchor
+        .find(".info-row")
+        .filter(
+          (_, row) =>
+            $(row).find(".info-label").text().trim().toLowerCase() === "types",
+        )
+        .find(".info-value")
+        .text()
+        .split(/[,/-]/)
+        .map((t) => t.trim())
+        .filter(Boolean);
 
-      const genreRaw = anchor.find("p.text-xs.font-medium.text-gray-300").first().text().trim();
-      const genres = genreRaw
-        ? genreRaw.split(",").map((g) => g.trim()).filter(Boolean)
-        : [];
-
-      const hasValidType = types.length === 0 || tagText;
-      const hasValidLanguage = languages.length === 0 || languageText;
-
-      if (title && link && hasValidType && hasValidLanguage) {
+      let filteredTypes =
+        wantedTypes.length === 0
+          ? typesRaw
+          : wantedTypes.filter((type) => isWanted(type, typesRaw));
+      const hasScans = filteredTypes.some((t) => t.toLowerCase() === "scans");
+      const languagesRaw = anchor
+        .find(".info-row")
+        .filter(
+          (_, row) =>
+            $(row).find(".info-label").text().trim().toLowerCase() ===
+            "langues",
+        )
+        .find(".info-value")
+        .text()
+        .toLowerCase()
+        .split(/[,/-]/)
+        .map((t) => t.trim())
+        .filter(Boolean);
+      let filteredLanguages =
+        wantedLanguages.length === 0
+          ? languagesRaw
+          : wantedLanguages.filter((lang) => isWanted(lang, languagesRaw));
+      if (
+        title &&
+        url &&
+        filteredTypes.length > 0 &&
+        (filteredLanguages.length > 0 || hasScans)
+      ) {
         results.push({
+          url: url.startsWith(CATALOGUE_URL)
+            ? url
+            : url.startsWith("/catalogue")
+              ? `${BASE_URL}${url}`
+              : `${CATALOGUE_URL}${url}`,
           title,
           altTitles,
-          genres,
-          url: link.startsWith("http") ? link : `${CATALOGUE_URL}${link}`,
           cover,
+          synopsis,
+          genres,
+          types: filteredTypes,
+          languages: filteredLanguages,
         });
       }
     });
-
     return containers.length > 0;
   };
 
-  if (page) {
-    await fetchPage(page);
+  if (wantedPage) {
+    await fetchPage(wantedPage);
   } else {
     let currentPage = 1;
-    while (await fetchPage(currentPage++) && results.length < limit) {
+    while ((await fetchPage(currentPage++)) && results.length < limit) {
       await new Promise((res) => setTimeout(res, 300));
     }
   }
@@ -125,130 +235,125 @@ export async function searchAnime(
   return results;
 }
 
-export async function getSeasons(animeUrl, languagePriority = ["vostfr", "vf", "va", "vkr", "vcn", "vqc", "vf1", "vf2"], wantedTypes=["Anime", "Kai", "Scans"]) {
+export async function getSeasons(
+  animeUrl,
+  wantedLanguages = allAvailableLanguages,
+  wantedTypes = ["Anime", "Kai", "Scans"],
+) {
+  await init();
   const res = await axios.get(animeUrl, { headers: getHeaders(CATALOGUE_URL) });
   const html = res.data;
-  let mainAnimeOnly = html;
-  if (wantedTypes.length !== 0) {
-    if (!wantedTypes.includes("Anime")) {
-      mainAnimeOnly = mainAnimeOnly.replace(/<h2.*?>Anime<\/h2>[\s\S]*?(?=<h2|$)/g, '');
-    }
-    if (!wantedTypes.includes("Kai")) {
-      mainAnimeOnly = mainAnimeOnly.replace(/<h2.*?>Anime Version Kai<\/h2>[\s\S]*?(?=<h2|$)/g, '');
-    }
-    if (!wantedTypes.includes("Scans")) {
-      mainAnimeOnly = mainAnimeOnly.replace(/<h2.*?>Manga<\/h2>[\s\S]*?(?=<h2|$)/g, '');
-    }
+  const mainAnimeOnly = {};
+
+  if (wantedTypes.includes("Anime") || wantedTypes.length === 0) {
+    mainAnimeOnly.anime =
+      html.match(/<h2[^>]*>\s*Anime\s*<\/h2>[\s\S]*?(?=<h2|$)/gi) || [];
   }
-  
-  const $ = cheerio.load(mainAnimeOnly);
-  const scriptTags = $("script")
-    .toArray()
-    .filter(script => ["panneauAnime", "panneauScan"].some(str => $(script).html().includes(str)));
+  if (wantedTypes.includes("Kai") || wantedTypes.length === 0) {
+    mainAnimeOnly.kai =
+      html.match(/<h2[^>]*>\s*[^<]*Kai\b[\s\S]*?(?=<h2|$)/gi) || [];
+  }
+  if (wantedTypes.includes("Scans") || wantedTypes.length === 0) {
+    mainAnimeOnly.scans =
+      html.match(/<h2[^>]*>\s*Manga\s*<\/h2>[\s\S]*?(?=<h2|$)/gi) || [];
+  }
 
-  const animeName = animeUrl.split("/")[4];
+  const animeId = animeUrl.split("/")[4];
   let seasons = [];
+  for (const [typeKey, sections] of Object.entries(mainAnimeOnly)) {
+    for (const sectionHtml of sections) {
+      const $ = cheerio.load(sectionHtml);
+      const scriptTags = $("script")
+        .toArray()
+        .filter((script) =>
+          ["panneauAnime", "panneauScan"].some((str) =>
+            $(script).html().includes(str),
+          ),
+        );
 
-  for (const language of languagePriority) {
-    seasons = [];
-    let languageAvailable = false;
-    let scansLanguage = "";
-    for (let script of scriptTags) {
-      const content = $(script).html();
+      for (const script of scriptTags) {
+        const content = $(script).html();
+        const uncommentedContent = content
+          .replace(/\/\*[\s\S]*?\*\//g, "")
+          .replace(/\/\/.*$/gm, "");
 
-      const uncommentedContent = content
-        .replace(/\/\*[\s\S]*?\*\//g, "")
-        .replace(/\/\/.*$/gm, "");
+        const matches = [
+          ...uncommentedContent.matchAll(
+            /(panneauAnime|panneauScan)\("([^"]+)", "([^"]+)"\);/g,
+          ),
+        ];
 
-      const matches = [...uncommentedContent.matchAll(/(panneauAnime|panneauScan)\("([^"]+)", "([^"]+)"\);/g)];
-
-      for (let match of matches) {
-        const type = match[1]; 
-        const title = match[2];
-        const href = match[3].split("/")[0];
-
-        if (type === "panneauScan") {
-          let found = false;
-          for (const lang of languagePriority) {
-            const fullUrl = `${CATALOGUE_URL}/${animeName}/${href}/${lang}`;
+        for (let match of matches) {
+          const title = match[2];
+          const seasonId = match[3].split("/")[0];
+          for (const lang of wantedLanguages.length
+            ? wantedLanguages
+            : allAvailableLanguages) {
+            const fullUrl = `${CATALOGUE_URL}/${animeId}/${seasonId}/${lang}`;
             try {
-              const check = await axios.head(fullUrl, { headers: getHeaders(animeUrl) });
+              const check = await axios.head(fullUrl, {
+                headers: getHeaders(animeUrl),
+              });
               if (check.status === 200) {
-                seasons.push({ title, url: fullUrl });
-                scansLanguage = lang
-                found = true;
-                break; 
+                if (title) {
+                  seasons.push({
+                    title,
+                    url: fullUrl,
+                    language: lang,
+                    type: typeKey?.[0].toUpperCase() + typeKey?.substring(1),
+                  });
+                }
+                break;
               }
             } catch {}
           }
-          if (found) languageAvailable = true;
-        } else {
-          const fullUrl = `${CATALOGUE_URL}/${animeName}/${href}/${language}`;
-          try {
-            const check = await axios.head(fullUrl, { headers: getHeaders(animeUrl) });
-            if (check.status === 200) {
-              seasons.push({ title, url: fullUrl });
-              languageAvailable = true;
-            }
-          } catch {}
         }
       }
     }
-    if (wantedTypes.includes("Scans") && wantedTypes.length==1 && scansLanguage) {
-      return { scansLanguage, seasons };
-    }
-    else if (languageAvailable) {
-      return { language, seasons };
-    }
   }
-
-  return [];
+  return seasons;
 }
-
 
 export async function getEpisodeTitles(seasonUrl, customChromiumPath) {
   let browser;
   try {
-    const puppeteer = await import('puppeteer');
+    const puppeteer = await import("puppeteer");
     const executablePath = await ensureChromiumInstalled(customChromiumPath);
 
     browser = await puppeteer.launch({
       headless: true,
       executablePath,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-      ]
-
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
 
     const page = await browser.newPage();
     await page.setExtraHTTPHeaders(getHeaders(seasonUrl));
     await page.setRequestInterception(true);
-    page.on('request', (req) => {
-      const blocked = ['image', 'stylesheet', 'font', 'media'];
+    page.on("request", (req) => {
+      const blocked = ["image", "stylesheet", "font", "media"];
       if (blocked.includes(req.resourceType())) {
         req.abort();
       } else {
         req.continue();
       }
     });
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' + '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    );
     await page.evaluateOnNewDocument(() => {
-      Object.defineProperty(navigator, 'webdriver', { get: () => false });
+      Object.defineProperty(navigator, "webdriver", { get: () => false });
     });
-    await page.goto(seasonUrl, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('#selectEpisodes');
-    
+    await page.goto(seasonUrl, { waitUntil: "domcontentloaded" });
+    await page.waitForSelector("#selectEpisodes");
 
-    const titres = await page.$$eval('#selectEpisodes option', options =>
-      options.map(o => o.textContent.trim())
+    const titres = await page.$$eval("#selectEpisodes option", (options) =>
+      options.map((o) => o.textContent.trim()),
     );
 
     return titres;
-
   } catch (error) {
-    console.error('Error while retrieving titles :', error);
+    console.error("Error while retrieving titles :", error);
     return [];
   } finally {
     if (browser) await browser.close();
@@ -259,8 +364,8 @@ export async function getEmbed(
   seasonUrl,
   hostPriority = ["sendvid", "sibnet", "vidmoly", "oneupload"],
   allHost = false,
-  includeInfo = false, 
-  customChromiumPath
+  includeInfo = false,
+  customChromiumPath,
 ) {
   const res = await axios.get(seasonUrl, {
     headers: getHeaders(seasonUrl.split("/").slice(0, 5).join("/")),
@@ -268,10 +373,13 @@ export async function getEmbed(
 
   const $ = cheerio.load(res.data);
 
-  const seasonTitle = ($('script').toArray()
-    .map(s => $(s).html())
-    .find(c => c && c.includes('#avOeuvre')) || '')
-    .match(/#avOeuvre"\)\.html\("([^"]+)"/)?.[1] || "Saison inconnue";
+  const seasonTitle =
+    (
+      $("script")
+        .toArray()
+        .map((s) => $(s).html())
+        .find((c) => c && c.includes("#avOeuvre")) || ""
+    ).match(/#avOeuvre"\)\.html\("([^"]+)"/)?.[1] || "Saison inconnue";
 
   const scriptTag = $('script[src*="episodes.js"]').attr("src");
   if (!scriptTag) throw new Error("No episodes script found");
@@ -284,7 +392,9 @@ export async function getEmbed(
     .get(scriptUrl, { headers: getHeaders(seasonUrl) })
     .then((r) => r.data);
 
-  const matches = [...episodesJs.toLowerCase().matchAll(/var\s+(eps\d+)\s*=\s*(\[[^\]]+\])/g)];
+  const matches = [
+    ...episodesJs.toLowerCase().matchAll(/var\s+(eps\d+)\s*=\s*(\[[^\]]+\])/g),
+  ];
   if (!matches.length) throw new Error("No episode arrays found");
 
   let episodeMatrix = [];
@@ -296,8 +406,9 @@ export async function getEmbed(
       console.warn("Could not parse embed array:", e);
     }
   }
-
-  const maxEpisodes = Math.max(...episodeMatrix.map(arr => arr.length));
+  const titles = await getEpisodeTitles(seasonUrl, customChromiumPath);
+  const maxEpisodes =
+    titles.length || Math.max(...episodeMatrix.map((arr) => arr.length));
   const finalEmbeds = [];
 
   for (let i = 0; i < maxEpisodes; i++) {
@@ -308,6 +419,9 @@ export async function getEmbed(
       for (const host of hostPriority) {
         for (const arr of episodeMatrix) {
           if (i < arr.length && arr[i].includes(host.toLowerCase())) {
+            if (arr[i].includes("vidmoly.to/")) {
+              arr[i] = arr[i].replace("vidmoly.to/", "vidmoly.biz/");
+            }
             if (!hosts.includes(host.toLowerCase())) {
               urls.push(arr[i]);
               hosts.push(host.toLowerCase());
@@ -316,13 +430,13 @@ export async function getEmbed(
           }
         }
       }
-
-      finalEmbeds.push({
-        title: null, 
-        url: urls.length ? urls : null,
-        host: hosts.length ? hosts : null,
-      });
-
+      if (urls.length > 0 && hosts.length > 0) {
+        finalEmbeds.push({
+          title: null,
+          url: urls,
+          host: hosts,
+        });
+      }
     } else {
       let selectedUrl = null;
       let selectedHost = null;
@@ -337,16 +451,19 @@ export async function getEmbed(
         }
         if (selectedUrl) break;
       }
-
-      finalEmbeds.push({
-        title: null, 
-        url: selectedUrl || null,
-        host: selectedHost || null,
-      });
+      if (selectedUrl.includes("vidmoly.to/")) {
+        selectedUrl = selectedUrl.replace("vidmoly.to/", "vidmoly.biz/");
+      }
+      if (selectedHost) {
+        finalEmbeds.push({
+          title: null,
+          url: selectedUrl,
+          host: selectedHost,
+        });
+      }
     }
   }
 
-  const titles = await getEpisodeTitles(seasonUrl, customChromiumPath);
   finalEmbeds.forEach((embed, i) => {
     embed.title = titles[i] || `Episode ${i + 1}`;
   });
@@ -356,17 +473,16 @@ export async function getEmbed(
       episodes: finalEmbeds,
       animeInfo: {
         seasonTitle,
-        episodeCount: maxEpisodes
-      }
+        episodeCount: maxEpisodes,
+      },
     };
   } else {
     return finalEmbeds;
   }
 }
 
-
-
 export async function getAnimeInfo(animeUrl) {
+  await init();
   const res = await axios.get(animeUrl, { headers: getHeaders(CATALOGUE_URL) });
   const $ = cheerio.load(res.data);
 
@@ -386,7 +502,6 @@ export async function getAnimeInfo(animeUrl) {
     .trim()
     .split(",")
     .map((genre) => genre.trim());
-
   const synopsis = $("h2:contains('Synopsis')").next("p").text().trim();
 
   return {
@@ -400,29 +515,38 @@ export async function getAnimeInfo(animeUrl) {
 
 export async function getAvailableLanguages(
   seasonUrl,
-  wantedLanguages = ["vostfr", "vf", "va", "vkr", "vcn", "vqc", "vf1", "vf2"],
-  numberEpisodes = false
+  wantedLanguages = allAvailableLanguages,
+  includeNumberEpisodes = false,
+  customChromiumPath,
 ) {
+  await init();
   const languageLinks = [];
 
-  // Iterate over each possible language and check if the page exists
-  for (let language of wantedLanguages) {
-    const languageUrl = seasonUrl.split('/').map((s, i) => i === 6 ? language : s).join('/');
+  for (let language of wantedLanguages.length
+    ? wantedLanguages
+    : allAvailableLanguages) {
+    const languageUrl = seasonUrl
+      .split("/")
+      .map((s, i) => (i === 6 ? language : s))
+      .join("/");
     try {
       const res = await axios.get(languageUrl, {
         headers: getHeaders(CATALOGUE_URL),
       });
       if (res.status === 200) {
-        if (numberEpisodes){
-          const episodeCount = (await getEmbed(languageUrl)).length;
-          languageLinks.push({ language: language.toUpperCase(), episodeCount: episodeCount });
+        if (includeNumberEpisodes) {
+          const episodeCount = (
+            await getEpisodeTitles(languageUrl, customChromiumPath)
+          ).length;
+          languageLinks.push({
+            language: language.toUpperCase(),
+            episodeCount: episodeCount,
+          });
         } else {
           languageLinks.push(language.toUpperCase());
         }
-        
       }
     } catch (error) {
-      // If an error occurs (like a 404), we skip that language
       continue;
     }
   }
@@ -430,59 +554,103 @@ export async function getAvailableLanguages(
 }
 
 export async function getAllAnime(
-  wantedLanguages = ["vostfr", "vf", "vastfr"],
-  wantedTypes = ["Anime", "Film"],
-  page = null,
+  wantedLanguages = mainAvailableLanguages,
+  wantedTypes = allAvailableTypes,
+  wantedPage = null,
+  includeSeasons = false,
   output = "anime_list.json",
-  get_seasons = false
 ) {
+  await init();
   let animeLinks = [];
 
-  const isWanted = (text, list) =>
-    list.some(item => text.toLowerCase().includes(item.toLowerCase()));
-
   const fetchPage = async (pageNum) => {
-    const url = pageNum === 1 ? CATALOGUE_URL : `${CATALOGUE_URL}?page=${pageNum}`;
+    const url =
+      pageNum === 1 ? CATALOGUE_URL : `${CATALOGUE_URL}?page=${pageNum}`;
     const res = await axios.get(url, { headers: getHeaders(CATALOGUE_URL) });
     const $ = cheerio.load(res.data);
 
-    const containers = $("div.shrink-0.m-3.rounded.border-2");
+    const containers = $("div.catalog-card > a");
 
     containers.each((_, el) => {
-      const anchor = $(el).find("a");
-      const title = anchor.find("h1").text().trim();
-      const link = anchor.attr("href");
-      const img = anchor.find("img").attr("src");
+      const anchor = $(el);
+      const url = anchor.attr("href");
+      const title = anchor.find("h2").first().text().trim();
+      const altRaw = anchor.find("p").first().text().trim();
+      const genreRaw = anchor.find("p.info-value").first().text().trim();
+      const cover = anchor.find("img").first().attr("src");
+      const synopsis = anchor
+        .find("div.synopsis-content")
+        .first()
+        .text()
+        .trim();
 
-      const paragraphs = anchor.find("p").toArray().map(p => $(p).text().trim());
+      const altTitles = altRaw
+        ? altRaw
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean)
+        : [];
+      const genres = genreRaw?.includes(",")
+        ? genreRaw
+            .split(",")
+            .map((g) => g.trim())
+            .filter(Boolean)
+        : genreRaw?.includes("-")
+          ? genreRaw
+              .split("-")
+              .map((g) => g.trim())
+              .filter(Boolean)
+          : [];
+      const typesRaw = anchor
+        .find(".info-row")
+        .filter(
+          (_, row) =>
+            $(row).find(".info-label").text().trim().toLowerCase() === "types",
+        )
+        .find(".info-value")
+        .text()
+        .split(/[,/-]/)
+        .map((t) => t.trim())
+        .filter(Boolean);
 
-      const altTitles = paragraphs[0] ? paragraphs[0].split(',').map(name => name.trim()) : [];
-      const genres = paragraphs[1] ? paragraphs[1].split(',').map(genre => genre.trim()) : [];
-      const type = paragraphs[2] ? paragraphs[2].split(',').map(t => t.trim()) : [];
-      const language = paragraphs[3] ? paragraphs[3].split(',').map(lang => lang.trim()) : [];
-
-      const filteredTypes = wantedTypes.length === 0
-        ? type
-        : type.filter(t => isWanted(t, wantedTypes));
-
-      const hasScans = filteredTypes.some(t => t.toLowerCase() === "scans".toLowerCase());
-
-      const filteredLanguages = (wantedLanguages.length === 0 || hasScans)
-        ? language
-        : language.filter(lang => isWanted(lang, wantedLanguages));
-
+      let filteredTypes =
+        wantedTypes.length === 0
+          ? typesRaw
+          : wantedTypes.filter((type) => isWanted(type, typesRaw));
+      const hasScans = filteredTypes.some((t) => t.toLowerCase() === "scans");
+      const languagesRaw = anchor
+        .find(".info-row")
+        .filter(
+          (_, row) =>
+            $(row).find(".info-label").text().trim().toLowerCase() ===
+            "langues",
+        )
+        .find(".info-value")
+        .text()
+        .toLowerCase()
+        .split(/[,/-]/)
+        .map((t) => t.trim())
+        .filter(Boolean);
+      let filteredLanguages =
+        wantedLanguages.length === 0
+          ? languagesRaw
+          : wantedLanguages.filter((lang) => isWanted(lang, languagesRaw));
       if (
         title &&
-        link &&
+        url &&
         filteredTypes.length > 0 &&
         (filteredLanguages.length > 0 || hasScans)
       ) {
-        const fullUrl = link.startsWith("http") ? link : `${BASE_URL}${link}`;
         animeLinks.push({
-          url: fullUrl,
+          url: url.startsWith(CATALOGUE_URL)
+            ? url
+            : url.startsWith("/catalogue")
+              ? `${BASE_URL}${url}`
+              : `${CATALOGUE_URL}${url}`,
           title,
           altTitles,
-          cover: img,
+          cover,
+          synopsis,
           genres,
           types: filteredTypes,
           languages: filteredLanguages,
@@ -496,29 +664,37 @@ export async function getAllAnime(
   const enrichWithSeasons = async (list) => {
     for (const anime of list) {
       try {
-        const seasons = await getSeasons(anime.url);
+        const seasons = await getSeasons(
+          anime.url,
+          wantedLanguages,
+          wantedTypes,
+        );
         anime.seasons = Array.isArray(seasons) ? seasons : [];
       } catch (err) {
-        console.warn(`⚠️ Failed to fetch seasons for ${anime.title}: ${err.message}`);
+        console.warn(
+          `⚠️ Failed to fetch seasons for ${anime.title}: ${err.message}`,
+        );
         anime.seasons = [];
       }
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise((r) => setTimeout(r, 300));
     }
   };
 
   try {
-    if (page) {
-      await fetchPage(page);
-      if (get_seasons) await enrichWithSeasons(animeLinks);
+    if (wantedPage > 0) {
+      await fetchPage(wantedPage);
+      if (includeSeasons) await enrichWithSeasons(animeLinks);
       return animeLinks;
     } else {
       let currentPage = 1;
       while (await fetchPage(currentPage++)) {
-        await new Promise(r => setTimeout(r, 300));
+        await new Promise((r) => setTimeout(r, 300));
       }
 
-      const uniqueLinks = [...new Map(animeLinks.map(item => [item.url, item])).values()];
-      if (get_seasons) await enrichWithSeasons(uniqueLinks);
+      const uniqueLinks = [
+        ...new Map(animeLinks.map((item) => [item.url, item])).values(),
+      ];
+      if (includeSeasons) await enrichWithSeasons(uniqueLinks);
 
       fs.writeFileSync(output, JSON.stringify(uniqueLinks, null, 2), "utf-8");
       return true;
@@ -529,8 +705,11 @@ export async function getAllAnime(
   }
 }
 
-export async function getLatestEpisodes(languageFilter = null) {
+export async function getLatestEpisodes(
+  wantedLanguages = allAvailableLanguages,
+) {
   try {
+    await init();
     const res = await axios.get(BASE_URL, { headers: getHeaders() });
     const $ = cheerio.load(res.data);
 
@@ -538,25 +717,31 @@ export async function getLatestEpisodes(languageFilter = null) {
     const episodes = [];
 
     container.find("a").each((_, el) => {
-      const link = $(el).attr("href");
-      const title = $(el).find("h1").text().trim();
-      const cover = $(el).find("img").attr("src");
-
-      const buttons = $(el).find("button");
-      const language = $(buttons[0]).text().trim().toLowerCase(); // Normalisation
-      const episode = $(buttons[1]).text().trim();
-
+      const anchor = $(el);
+      let url = anchor.attr("href");
+      url = url.startsWith(CATALOGUE_URL)
+        ? url
+        : url.startsWith("/catalogue")
+          ? `${BASE_URL}${url}`
+          : `${CATALOGUE_URL}${url}`;
+      const title = anchor.find("h2").text().trim();
+      const cover = anchor.find("img").attr("src");
+      const language = url.split("/").slice(6, 7).join("");
+      const episode = anchor.find(".info-text").text().trim();
       if (
         title &&
-        link &&
+        url &&
         cover &&
         language &&
         episode &&
-        (languageFilter === null || languageFilter.map(l => l.toLowerCase()).includes(language.toLowerCase()))
+        (wantedLanguages.length === 0 ||
+          wantedLanguages
+            .map((l) => l.toLowerCase())
+            .includes(language.toLowerCase()))
       ) {
         episodes.push({
-          title: title,
-          url: link,
+          title,
+          url,
           cover,
           language,
           episode,
@@ -571,8 +756,9 @@ export async function getLatestEpisodes(languageFilter = null) {
   }
 }
 
-export async function getLatestScans(languageFilter = null) {
+export async function getLatestScans(wantedLanguages = allAvailableLanguages) {
   try {
+    await init();
     const res = await axios.get(BASE_URL, { headers: getHeaders() });
     const $ = cheerio.load(res.data);
 
@@ -580,15 +766,23 @@ export async function getLatestScans(languageFilter = null) {
     const scans = [];
 
     container.find("a").each((_, el) => {
-      const url = $(el).attr("href");
-      const title = $(el).find("h1").text().trim();
-      const cover = $(el).find("img").attr("src");
-
-      const buttons = $(el).find("button");
-      const type = $(buttons[0]).text().trim().toLowerCase();
-      const language = url.split("/").slice(6, 7)[0];
-      const chapter = $(buttons[2]).text().trim();
-
+      const anchor = $(el);
+      let url = anchor.attr("href");
+      url = url.startsWith(CATALOGUE_URL)
+        ? url
+        : url.startsWith("/catalogue")
+          ? `${BASE_URL}${url}`
+          : `${CATALOGUE_URL}${url}`;
+      const title = anchor.find("h2").text().trim();
+      const cover = anchor.find("img").attr("src");
+      const type = anchor
+        .find(".badge-text")
+        .first()
+        .text()
+        .trim()
+        .toLowerCase();
+      const language = url.split("/").slice(6, 7).join("");
+      const chapter = anchor.find(".info-text").text().trim();
       if (
         title &&
         url &&
@@ -596,8 +790,8 @@ export async function getLatestScans(languageFilter = null) {
         type &&
         language &&
         chapter &&
-        (languageFilter === null ||
-          languageFilter
+        (wantedLanguages.length === 0 ||
+          wantedLanguages
             .map((l) => l.toLowerCase())
             .includes(language.toLowerCase()))
       ) {
@@ -620,31 +814,26 @@ export async function getLatestScans(languageFilter = null) {
 }
 
 export async function getRandomAnime(
-  wantedLanguages = ["vostfr", "vf", "vastfr"],
-  wantedTypes = ["Anime", "Film"],
-  maxAttempts = null,
-  attempt = 0
+  wantedLanguages = mainAvailableLanguages,
+  wantedTypes = allAvailableTypes,
+  maxAttempts = 50,
+  attempt = 0,
 ) {
+  await init();
   try {
-    const res = await axios.get(
-      `${CATALOGUE_URL}/?search=&random=1`,
-      { headers: getHeaders(CATALOGUE_URL) }
-    );
+    const res = await axios.get(`${CATALOGUE_URL}/?search=&random=1`, {
+      headers: getHeaders(CATALOGUE_URL),
+    });
 
     const $ = cheerio.load(res.data);
-    const isWanted = (text, list) =>
-      list.some(item => text.toLowerCase().includes(item.toLowerCase()));
 
-    const container = $("div.shrink-0.m-3.rounded.border-2").first();
-    const anchor = container.find("a");
-    const link = anchor.attr("href");
-    const title = anchor.find("h1").first().text().trim();
-    const altRaw = anchor
-      .find("p.text-xs.opacity-40.italic")
-      .first()
-      .text()
-      .trim();
+    const anchor = $("div.catalog-card > a");
+    const url = anchor.attr("href");
+    const title = anchor.find("h2").first().text().trim();
+    const altRaw = anchor.find("p").first().text().trim();
+    const genreRaw = anchor.find("p.info-value").first().text().trim();
     const cover = anchor.find("img").first().attr("src");
+    const synopsis = anchor.find("div.synopsis-content").first().text().trim();
 
     const altTitles = altRaw
       ? altRaw
@@ -652,74 +841,192 @@ export async function getRandomAnime(
           .map((t) => t.trim())
           .filter(Boolean)
       : [];
-
-    const genreRaw = anchor
-      .find("p.text-xs.font-medium.text-gray-300")
-      .first()
-      .text()
-      .trim();
-
-    const genres = genreRaw
+    const genres = genreRaw?.includes(",")
       ? genreRaw
           .split(",")
           .map((g) => g.trim())
           .filter(Boolean)
-      : [];
+      : genreRaw?.includes("-")
+        ? genreRaw
+            .split("-")
+            .map((g) => g.trim())
+            .filter(Boolean)
+        : [];
+    const typesRaw = anchor
+      .find(".info-row")
+      .filter(
+        (_, row) =>
+          $(row).find(".info-label").text().trim().toLowerCase() === "types",
+      )
+      .find(".info-value")
+      .text()
+      .split(/[,/-]/)
+      .map((t) => t.trim())
+      .filter(Boolean);
 
-    const tagText = anchor.find("p").filter((_, p) =>
-      isWanted($(p).text(), wantedTypes)
-    ).first().text();
-
-    const languageText = anchor.find("p").filter((_, p) =>
-      isWanted($(p).text(), wantedLanguages)
-    ).first().text();
-
-    if (title && link && tagText && languageText) {
+    let filteredTypes =
+      wantedTypes.length === 0
+        ? typesRaw
+        : wantedTypes.filter((type) => isWanted(type, typesRaw));
+    const hasScans = filteredTypes.some((t) => t.toLowerCase() === "scans");
+    const languagesRaw = anchor
+      .find(".info-row")
+      .filter(
+        (_, row) =>
+          $(row).find(".info-label").text().trim().toLowerCase() === "langues",
+      )
+      .find(".info-value")
+      .text()
+      .toLowerCase()
+      .split(/[,/-]/)
+      .map((t) => t.trim())
+      .filter(Boolean);
+    let filteredLanguages =
+      wantedLanguages.length === 0
+        ? languagesRaw
+        : wantedLanguages.filter((lang) => isWanted(lang, languagesRaw));
+    if (
+      title &&
+      url &&
+      filteredTypes.length > 0 &&
+      (filteredLanguages.length > 0 || hasScans)
+    ) {
       return {
+        url: url.startsWith(CATALOGUE_URL)
+          ? url
+          : url.startsWith("/catalogue")
+            ? `${BASE_URL}${url}`
+            : `${CATALOGUE_URL}${url}`,
         title,
         altTitles,
-        genres,
-        url: link.startsWith("http") ? link : `${CATALOGUE_URL}${link}`,
         cover,
+        synopsis,
+        genres,
+        types: filteredTypes,
+        languages: filteredLanguages,
       };
     } else {
       if (maxAttempts === null || attempt < maxAttempts) {
-        return await getRandomAnime(wantedLanguages, wantedTypes, maxAttempts, attempt + 1);
+        return await getRandomAnime(
+          wantedLanguages,
+          wantedTypes,
+          maxAttempts,
+          attempt + 1,
+        );
       } else {
         throw new Error("Max attempts reached without finding a valid anime.");
       }
     }
   } catch (err) {
     console.error("Failed to fetch random anime:", err.message);
-    return null;
+    return [];
   }
 }
 
-
-export async function getAllTitleScans(mangaUrl, numberImg = false) {
+export async function getChapterTitles(
+  mangaUrl,
+  includeNumberImg = false,
+  includeEncodedTitle = false,
+) {
+  await init();
   const res = await axios.get(mangaUrl, { headers: getHeaders() });
   const $ = cheerio.load(res.data);
 
-  const title = encodeURIComponent($("#titreOeuvre").text().trim());
-  const urlInfo = `https://anime-sama.fr/s2/scans/get_nb_chap_et_img.php?oeuvre=${title}`
-  const infoPage = await axios.get(urlInfo, { headers: getHeaders() });
-  const titleChapter = Object.keys(infoPage.data)
+  let titles = [];
+  let endBasics = [];
 
-  if (numberImg) {
-    return {scans :infoPage.data, mangaTitle :title}
-  } else {
-    return titleChapter
+  const scriptTags = $("script")
+    .toArray()
+    .filter((script) =>
+      ["newSPF", "newSP"].some((str) => $(script).html().includes(str)),
+    );
+
+  for (let script of scriptTags) {
+    const html = $(script).html();
+
+    const startBasics = [
+      ...html.matchAll(/creerListe\(\s*(\d+)\s*,\s*(\d+)\s*\)/g),
+    ].map((m) => ({ start: Number(m[1]), end: Number(m[2]) }));
+    for (const { start, end } of startBasics) {
+      for (let i = start; i <= end; i++) {
+        titles.push(`Chapitre ${i}`);
+      }
+    }
+
+    titles.push(
+      ...[
+        ...html.matchAll(
+          /(?:newSP|newSPF)\(\s*(?:"([^"]+)"|(\d+(?:\.\d+)?))\s*\)/g,
+        ),
+      ].map((m) => m[1] ?? `Chapitre ${m[2]}`),
+    );
+
+    endBasics.push(
+      ...[...html.matchAll(/finirListe\(\s*(\d+)\s*\)/g)].map((m) =>
+        Number(m[1]),
+      ),
+    );
   }
+
+  const title = encodeURIComponent($("#titreOeuvre").text());
+  const urlInfo = `${BASE_URL}/s2/scans/get_nb_chap_et_img.php?oeuvre=${title}`;
+  const infoPage = await axios.get(urlInfo, { headers: getHeaders() });
+
+  const titleChapter = infoPage.data;
+  const totalChapters = Object.keys(titleChapter).length;
+  let extra = endBasics.length ? Math.max(...endBasics) : 0;
+
+  const result = [];
+  let titleIndex = 0;
+
+  for (let i = 1; i <= totalChapters; i++) {
+    const number = titleChapter[String(i)];
+
+    let chapterTitle;
+    if (titles[titleIndex]) {
+      chapterTitle = titles[titleIndex];
+    } else if (extra > 0) {
+      chapterTitle = `Chapitre ${extra}`;
+      extra++;
+    } else {
+      chapterTitle = `Chapitre ${i}`;
+    }
+    if (includeNumberImg) {
+      result.push({
+        numberImg: number,
+        title: chapterTitle,
+      });
+    } else {
+      result.push(chapterTitle);
+    }
+    
+
+    titleIndex++;
+  }
+
+  return includeEncodedTitle ? { scans: result, encodedTitle: title } : result;
 }
 
-export async function getImgScans(mangaUrl, wantedChapter) {
-  const infoScan = await getAllTitleScans(mangaUrl, true)
-  const numberImg = infoScan.scans[wantedChapter.toString()];
-  const mangaTitle = infoScan.mangaTitle
-  const imgUrls = [];
-  for (let i = 1; i <= numberImg; i++) {
-    imgUrls.push(`https://anime-sama.fr/s2/scans/${mangaTitle}/${wantedChapter}/${i}.jpg`);
+export async function getImgScans(
+  mangaUrl,
+  wantedChapter,
+  numberImg = null,
+  encodedTitle = null,
+) {
+  await init();
+
+  if (!numberImg || !encodedTitle) {
+    const infoScan = await getChapterTitles(mangaUrl, true, true);
+    numberImg = infoScan.scans[wantedChapter.toString()].numberImg;
+    encodedTitle = encodeURIComponent(infoScan.encodedTitle);
   }
 
-  return imgUrls
+  const imgUrls = [];
+  for (let i = 1; i <= numberImg; i++) {
+    imgUrls.push(
+      `${BASE_URL}/s2/scans/${encodedTitle}/${wantedChapter + 1}/${i}.jpg`,
+    );
+  }
+
+  return imgUrls;
 }

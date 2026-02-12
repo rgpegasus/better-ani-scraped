@@ -3,10 +3,10 @@ import { AnimeScraper } from "../../index.js"; // REPLACE BY "from 'better-ani-s
 const main = async () => {
   const animesama = new AnimeScraper('animesama');
   const BASE_URL = await animesama.getWorkingUrl();
-  const seasonUrl = `${BASE_URL}/catalogue/86-eighty-six/saison1/vostfr/`;
-
-  const animeLanguages = await animesama.getAvailableLanguages(seasonUrl, ["vostfr", "vf", "va"], false);
-  console.log("Languages: ",animeLanguages);
+  const mangaUrl = `${BASE_URL}/catalogue/one-piece/scan_noir-et-blanc/vf/`;
+  
+  const chapterTitles = await animesama.getChapterTitles(mangaUrl, true, true);
+  console.log("Titles: ", chapterTitles);
 };
 
 main().catch(console.error);
