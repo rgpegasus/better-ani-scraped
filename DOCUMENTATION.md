@@ -298,7 +298,7 @@ Scrapes the latest released episodes, optionally filtered by language.
 
 ---
 
-### `animesama.getRandomAnime(wantedLanguages =  ["vostfr", "vf", "vastfr"], wantedTypes = ["Anime", "Film", "Scans", "Autres"], maxAttempts = null, attempt = 0)`
+### `animesama.getRandomAnime(wantedLanguages = ["vostfr", "vf", "vastfr"], wantedTypes = ["Anime", "Film", "Scans", "Autres"], maxAttempts = null, attempt = 0)`
 Fetches a random anime from the catalog.
 
 - **Parameters:**

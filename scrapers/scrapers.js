@@ -59,14 +59,24 @@ export class AnimeScraper {
     }
   }
 
-  async getEmbed(seasonUrl, ...rest) {
+  async getEmbed(seasonUrl, hostPriority, allHost, includeInfo, ...rest) {
     try {
-      return await this.source.getEmbed(seasonUrl, ...rest);
+      return await this.source.getEmbed(
+        seasonUrl,
+        hostPriority,
+        allHost,
+        includeInfo,
+        ...rest,
+      );
     } catch (error) {
       console.error(
         `This scraper does not have the getEmbed function implemented or an error happened -> ${error}`,
       );
-      return [];
+      if (includeInfo === true) {
+        return {};
+      } else {
+        return [];
+      }
     }
   }
 
@@ -145,9 +155,19 @@ export class AnimeScraper {
       return [];
     }
   }
-  async getChapterTitles(mangaUrl, includeNumberImg, includeEncodedTitle, ...rest) {
+  async getChapterTitles(
+    mangaUrl,
+    includeNumberImg,
+    includeEncodedTitle,
+    ...rest
+  ) {
     try {
-      return await this.source.getChapterTitles(mangaUrl, includeNumberImg, includeEncodedTitle, ...rest);
+      return await this.source.getChapterTitles(
+        mangaUrl,
+        includeNumberImg,
+        includeEncodedTitle,
+        ...rest,
+      );
     } catch (error) {
       console.error(
         `This scraper does not have the getAllTitleScans function implemented or an error happened -> ${error}`,

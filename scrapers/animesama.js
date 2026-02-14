@@ -489,21 +489,35 @@ export async function getAnimeInfo(animeUrl) {
   const cover = $("#coverOeuvre").attr("src");
   const title = $("#titreOeuvre").text();
   const altRaw = $("#titreAlter").text();
-  const altTitles = altRaw
+  const altTitles = altRaw?.includes(",")
     ? altRaw
         .split(",")
         .map((t) => t.trim())
         .filter(Boolean)
-    : [];
+    : altRaw?.includes("/")
+      ? altRaw
+          .split("/")
+          .map((t) => t.trim())
+          .filter(Boolean)
+      : altRaw ? 
+      altRaw.split("-")
+            .map((t) => t.trim())
+            .filter(Boolean)
+        : [];
 
-  const genres = $("h2:contains('Genres')")
+  const genresRaw = $("h2:contains('Genres')")
     .next("a")
     .text()
     .trim()
-    .split(",")
-    .map((genre) => genre.trim());
+  let genres;
+  if (genresRaw.includes(",")) {
+    genres = genresRaw.split(",").map((genre) => genre.trim());
+  } else if (genresRaw.includes("/")) {
+    genres = genresRaw.split("-").map((genre) => genre.trim());
+  } else if (genresRaw.includes("-")) {
+    genres = genresRaw.split("/").map((genre) => genre.trim());
+  }
   const synopsis = $("h2:contains('Synopsis')").next("p").text().trim();
-
   return {
     title,
     altTitles,
@@ -942,30 +956,31 @@ export async function getChapterTitles(
     );
 
   for (let script of scriptTags) {
-    const html = $(script).html();
-
-    const startBasics = [
-      ...html.matchAll(/creerListe\(\s*(\d+)\s*,\s*(\d+)\s*\)/g),
-    ].map((m) => ({ start: Number(m[1]), end: Number(m[2]) }));
-    for (const { start, end } of startBasics) {
-      for (let i = start; i <= end; i++) {
-        titles.push(`Chapitre ${i}`);
+    const html = $(script).html().split(";");
+    for (const action of html) {
+      titles.push(
+        ...[
+          ...action.matchAll(
+            /(?:newSP|newSPF)\(\s*(?:"([^"]+)"|(\d+(?:\.\d+)?))\s*\)/g,
+          ),
+        ].map((m) => m[1] ?? `Chapitre ${m[2]}`),
+      );
+      
+      const startBasics = [
+        ...action.matchAll(/creerListe\(\s*(\d+)\s*,\s*(\d+)\s*\)/g),
+      ].map((m) => ({ start: Number(m[1]), end: Number(m[2]) }));
+      for (const { start, end } of startBasics) {
+        for (let i = start; i <= end; i++) {
+          titles.push(`Chapitre ${i}`);
+        }
       }
-    }
 
-    titles.push(
-      ...[
-        ...html.matchAll(
-          /(?:newSP|newSPF)\(\s*(?:"([^"]+)"|(\d+(?:\.\d+)?))\s*\)/g,
+      endBasics.push(
+        ...[...action .matchAll(/finirListe\(\s*(\d+)\s*\)/g)].map((m) =>
+          Number(m[1]),
         ),
-      ].map((m) => m[1] ?? `Chapitre ${m[2]}`),
-    );
-
-    endBasics.push(
-      ...[...html.matchAll(/finirListe\(\s*(\d+)\s*\)/g)].map((m) =>
-        Number(m[1]),
-      ),
-    );
+      );
+    }
   }
 
   const title = encodeURIComponent($("#titreOeuvre").text());
@@ -1018,7 +1033,7 @@ export async function getImgScans(
   if (!numberImg || !encodedTitle) {
     const infoScan = await getChapterTitles(mangaUrl, true, true);
     numberImg = infoScan.scans[wantedChapter.toString()].numberImg;
-    encodedTitle = encodeURIComponent(infoScan.encodedTitle);
+    encodedTitle = infoScan.encodedTitle;
   }
 
   const imgUrls = [];
