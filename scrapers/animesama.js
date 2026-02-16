@@ -242,7 +242,7 @@ export async function getSeasons(
 ) {
   await init();
   const res = await axios.get(animeUrl, { headers: getHeaders(CATALOGUE_URL) });
-  const html = res.data;
+  const html = res.data.replace(/<!--[\s\S]*?-->/g, "");
   const mainAnimeOnly = {};
 
   if (wantedTypes.includes("Anime") || wantedTypes.length === 0) {
