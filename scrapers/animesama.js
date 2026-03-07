@@ -16,34 +16,49 @@ const LIST_URL = "https://anime-sama.pw";
 export async function getWorkingUrl(listUrl = LIST_URL) {
   const res = await axios.get(listUrl);
   const $ = cheerio.load(res.data);
+
   const btn = $(".btn-primary").attr("href");
   if (!btn) return null;
+
   let href = new URL(btn, listUrl).href;
   if (href.endsWith("/")) {
     href = href.slice(0, -1);
   }
 
-  try {
-    await axios.get(href, {
-      maxRedirects: 0,
-      responseType: "stream",
-      headers: {
-        "User-Agent": "Mozilla/5.0",
-      },
-    });
-  } catch (err) {
-    const response = err.response;
-    if (response?.status === 302) {
-      let location = response.headers.location;
-      let redirectedUrl = new URL(location, href).href;
-      if (redirectedUrl.endsWith("/")) {
-        redirectedUrl = redirectedUrl.slice(0, -1);
+  let currentUrl = href;
+  const MAX_REDIRECTS = 10;
+
+  for (let i = 0; i < MAX_REDIRECTS; i++) {
+    try {
+      await axios.get(currentUrl, {
+        maxRedirects: 0,
+        responseType: "stream",
+        headers: {
+          "User-Agent": "Mozilla/5.0",
+        },
+      });
+      return currentUrl;
+    } catch (err) {
+      const response = err.response;
+      if (
+        response &&
+        [301, 302, 303, 307, 308].includes(response.status) &&
+        response.headers.location
+      ) {
+        let nextUrl = new URL(response.headers.location, currentUrl).href;
+        if (nextUrl.endsWith("/")) {
+          nextUrl = nextUrl.slice(0, -1);
+        }
+
+        currentUrl = nextUrl;
+        continue;
       }
-      return redirectedUrl;
+
+      return currentUrl;
     }
-    throw err;
   }
-  return href;
+
+  throw new Error("Too many redirects");
 }
 
 let BASE_URL;
@@ -317,7 +332,7 @@ export async function getSeasons(
 export async function getEpisodeTitles(seasonUrl, customChromiumPath) {
   let browser;
   try {
-    const puppeteer = await import("puppeteer");
+    const puppeteer = puppeteerExtra;
     const executablePath = await ensureChromiumInstalled(customChromiumPath);
 
     browser = await puppeteer.launch({
@@ -483,7 +498,7 @@ export async function getEmbed(
 
 export async function getAnimeInfo(animeUrl) {
   await init();
-  const res = await axios.get(animeUrl, { headers: getHeaders(CATALOGUE_URL) });
+  const res = await axios.get(animeUrl, { headers: getHeaders(CATALOGUE_URL)});
   const $ = cheerio.load(res.data);
 
   const cover = $("#coverOeuvre").attr("src");
