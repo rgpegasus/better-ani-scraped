@@ -8,8 +8,6 @@
 - [Presentation](#presentation)
 - [Main class](#main-class)
 - [`AnimeScraper("animesama")` methods](#animescraperanimesama-methods)
-- [`AnimeScraper("animepahe")` methods](#animescraperanimepahe-methods)
-- [`AnimeScraper("crunchyroll")` methods](#animescrapercrunchyroll-methods)
 - [Utility functions](#utility-functions)
 
 ---
@@ -19,20 +17,16 @@
 A set of utility functions for scraping anime data from multiple sources. This tool allows you to search for anime, retrieve information, get episodes, and more.
 
 ##### Supported sources
-- [anime-sama](https://anime-sama.tv)
-- [animepahe](https://animepahe.si) 
-- [crunchyroll](https://www.crunchyroll.com/fr)
+- [anime-sama](https://anime-sama.to)
 
 ---
 
 ## Main class
 
 ### `AnimeScraper(source)`
-Creates a scraper for the given source (only "animesama", "animepahe", and "crunchyroll" are currently available).
+Creates a scraper for the given source (only "animesama" are currently available).
 ```js 
 const animesama = new AnimeScraper('animesama') //for Anime Sama
-const animepahe = new AnimeScraper('animepahe') //for Anime Pahe
-const crunchyroll = new AnimeScraper('crunchyroll') //for Crunchyroll
 ```
 
 ---
@@ -41,10 +35,10 @@ const crunchyroll = new AnimeScraper('crunchyroll') //for Crunchyroll
 
 - [searchAnime](#animesamasearchanimequery-limit--10-wantedlanguages--vostfr-vf-vastfr-wantedtypes--anime-film-scans-autres-wantedpage--1)
 - [getSeasons](#animesamagetseasonsanimeurl-wantedlanguages--vostfr-vf-va-vkr-vcn-vqc-vf1-vf2-wantedtypes--anime-kai-scans)
-- [getEpisodeTitles](#animesamagetepisodetitlesseasonurl-customchromiumpath)
-- [getEmbed](#animesamagetembedseasonurl-hostpriority--sendvid-sibnet-vidmoly-oneupload-allhost--false-includeinfo--false-customchromiumpath)
+- [getEpisodeTitles](#animesamagetepisodetitlesseasonurl-numberepisode)
+- [getEmbed](#animesamagetembedseasonurl-hostpriority--sendvid-sibnet-vidmoly-smoothpre-allhost--false-includeinfo--false)
 - [getAnimeInfo](#animesamagetanimeinfoanimeurl)
-- [getAvailableLanguages](#animesamagetavailablelanguagesseasonurl-wantedlanguages--vostfr-vf-va-vkr-vcn-vqc-vf1-vf2-includenumberepisodes--false-customchromiumpath)
+- [getAvailableLanguages](#animesamagetavailablelanguagesseasonurl-wantedlanguages--vostfr-vf-va-vkr-vcn-vqc-vf1-vf2-includenumberepisodes--false)
 - [getAllAnime](#animesamagetallanimewantedlanguages--vostfr-vf-vastfr-wantedtypes--anime-film-scans-autres-wantedpage--0-includeseasons--false-output--anime_listjson)
 - [getLatestEpisodes](#animesamagetlatestepisodeswantedlanguages--vostfr-vf-va-vkr-vcn-vqc-vf1-vf2)
 - [getLatestScans](#animesamagetlatestscanswantedlanguages--vostfr-vf-va-vkr-vcn-vqc-vf1-vf2)
@@ -105,18 +99,18 @@ Fetches all available seasons of an anime in the first valid language specified.
 
 ---
 
-### `animesama.getEpisodeTitles(seasonUrl, customChromiumPath)`
+### `animesama.getEpisodeTitles(seasonUrl, numberEpisode)`
 Fetches the names of all episodes in a season.
 
 - **Parameters:**
   - `seasonUrl` *(string)*: URL of the anime’s season page.
-  - `customChromiumPath` *(string)*: Path of the Chromium folder
+  - `numberEpisode` *(number)*: The number of episodes in the season.
 - **Returns:**  
   An array of episode titles.
 
 ---
 
-### `animesama.getEmbed(seasonUrl, hostPriority = ["sendvid", "sibnet", "vidmoly", "oneupload"], allHost = false, includeInfo = false, customChromiumPath)`
+### `animesama.getEmbed(seasonUrl, hostPriority = ["sendvid", "sibnet", "vidmoly", "smoothpre"], allHost = false, includeInfo = false)`
 Retrieves embed URLs for episodes, prioritizing by host.
 
 - **Parameters:**
@@ -124,7 +118,6 @@ Retrieves embed URLs for episodes, prioritizing by host.
   - `hostPriority` *(string[])*: Array of preferred hostnames.
   - `allHost` *(boolean)*: If `true`, fetches all available embeds contained in *hostPriority*.
   - `includeInfo` *(boolean)*: If `true`, also fetches the name and the number of episodes of the season.
-  - `customChromiumPath` *(string)*: Path of the Chromium folder.
 - **Returns:**  
   - An array of embed video object if `includeInfo = false`:
   ```js
@@ -176,14 +169,13 @@ Extracts basic information from an anime page.
 
 ---
 
-### `animesama.getAvailableLanguages(seasonUrl, wantedLanguages = ["vostfr", "vf", "va", "vkr", "vcn", "vqc", "vf1", "vf2"], includeNumberEpisodes = false, customChromiumPath)`
+### `animesama.getAvailableLanguages(seasonUrl, wantedLanguages = ["vostfr", "vf", "va", "vkr", "vcn", "vqc", "vf1", "vf2"], includeNumberEpisodes = false)`
 Checks which languages are available for a given anime season.
 
 - **Parameters:**
   - `seasonUrl` *(string)*: URL of the anime's season page.
   - `wantedLanguages` *(string[])*: Array of preferred languages.
   - `includeNumberEpisodes` *(boolean)*: If `true`, also fetches the number of episodes in each language.
-  - `customChromiumPath` *(string)*: Path of the Chromium folder. Useless if `includeNumberEpisodes = false`.
 - **Returns:**  
   An array of objects containing available languages and their episode count if `includeNumberEpisodes = true`:
   ```js
@@ -388,85 +380,6 @@ Fetches the images of a chapter.
 
 ---
 
-## `AnimeScraper("animepahe")` methods
-
-- [searchAnime](#animepahesearchanimequery)
-
-
-### `animepahe.searchAnime(query)`
-Searches for anime titles that match the given query.
-
-- **Parameters:**
-  - `query` *(string)*: The search keyword.
-- **Returns:**  
-  An array of anime objects:
-  ```js
-  [
-    {
-      id: number,
-      title: string,
-      type: string,
-      episodes: number,
-      status: string,
-      season: string,
-      year: number,
-      score: float,
-      session: string,
-      cover: string,
-      url: string
-    },
-    ...
-  ]
-  ```
-
----
-
-## `AnimeScraper("crunchyroll")` methods
-
-- [searchAnime](#crunchyrollsearchanimequery-limit--10)
-- [getEpisodeInfo](#crunchyrollgetepisodeinfoanimeurl-seasontitle)
-
-
-### `crunchyroll.searchAnime(query, limit = 10)`
-Searches for anime titles that match the given query.
-
-- **Parameters:**
-  - `query` *(string)*: The search keyword.
-  - `limit` *(number)*: Maximum number of results to return.
-- **Returns:**  
-  An array of anime objects:
-  ```js
-  [
-    {
-      title: string,
-      url: string,
-      cover: string
-    },
-    ...
-  ]
-  ```
-
-### `crunchyroll.getEpisodeInfo(animeUrl, seasonTitle)`
-Extracts information from all episodes of a season of an anime.
-
-- **Parameters:**
-  - `animeUrl` *(string)*: URL of the anime’s page.
-  - `seasonTitle` *(string)*: Name of the season for which you want episode information. If null, returns episodes from season 1.
-- **Returns:**  
-  An array of episode objects:
-  ```js
-  [
-    {
-      title: string,
-      synopsis: string,
-      releaseDate: string,
-      cover: string
-    },
-    ...
-  ]
-  ```
----
-
 ## Utility functions 
 
 - [getVideoUrlFromEmbed](#getvideourlfromembedsource-embedurl)
@@ -475,16 +388,17 @@ Extracts information from all episodes of a season of an anime.
 Retrieves the video URL of the source's embed.
 
 - **Parameters:**
-  - `source` *(string)*: The embed source (only "sibnet", "sendvid", "vidmoly", "oneupload", "movearnpre" and "smoothpre" available at the moment)
+  - `source` *(string)*: The embed source (only "sibnet", "sendvid", "vidmoly", "smoothpre" and "embed4me" available at the moment)
   - `embedUrl` *(string)*: URL of the embed’s episode page
 - **Returns:**  
   A video URL as a string:
   - `sibnet`: mp4
   - `sendvid`: mp4
-  - `vidmoly`: m3u8 ***deprecated***
-  - `oneupload`: m3u8
+  - `vidmoly`: {*videoUrl*: m3u8, *openingTime*: [ start, end ]}
+  - `oneupload`: m3u8 ***deprecated***
   - `movearnpre`: m3u8 ***deprecated***
   - `smoothpre`: m3u8
+  - `embed4me`: m3u8
 
 ---
 

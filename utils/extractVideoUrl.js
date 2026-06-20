@@ -1,7 +1,6 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
 
-
 const getHeaders = (referer) => ({
   Accept: "*/*",
   Referer: referer,
@@ -24,7 +23,7 @@ export async function getSibnetVideo(embedUrl) {
     const res1 = await axios.get(intermediateUrl, {
       headers: getHeaders(embedUrl),
       maxRedirects: 0,
-      validateStatus: (s) => s >= 200 && s < 400, 
+      validateStatus: (s) => s >= 200 && s < 400,
     });
     const redirectUrl = res1.headers.location;
     if (!redirectUrl) return null;
@@ -51,24 +50,38 @@ export async function getSendvidVideo(embedUrl) {
   }
 }
 
-export async function getVidmolyOrOneuploadVideo(embedUrl) {
+export async function getVidmolyVideo(embedUrl) {
   try {
     if (embedUrl.includes("vidmoly.to/")) {
       embedUrl = embedUrl.replace("vidmoly.to/", "vidmoly.biz/");
     }
-    console.log(embedUrl)
+    console.log(embedUrl);
     const { data } = await axios.get(embedUrl, {
       headers: getHeaders(embedUrl),
     });
     const $ = cheerio.load(data);
     const scripts = $("script");
-
+    let match = "";
+    let intro = [0, 0];
     for (let i = 0; i < scripts.length; i++) {
       const content = $(scripts[i]).html();
-      const match = content && content.match(/file\s*:\s*"(https[^"]+\.m3u8[^"]*)"/);
-      if (match && match[1]) {
-        return match[1];
+      if (!match) {
+        match = content?.match(/file\s*:\s*['"](https[^'"]+\.m3u8[^'"]*)['"]/);
       }
+      const skipStart = content.match(/var\s*skipStart\s*=\s*([^;]+)/)?.[1];
+      const skipTime = content.match(/var\s*skipTime\s*=\s*([^;]+)/)?.[1];
+      if (skipStart) {
+        intro[0] = Number(skipStart);
+      }
+      if (skipTime) {
+        intro[1] = Number(skipTime);
+      }
+    }
+    if (match && match[1]) {
+      return {
+        videoUrl: match[1],
+        openingTime: intro,
+      };
     }
     return null;
   } catch (err) {
@@ -77,27 +90,77 @@ export async function getVidmolyOrOneuploadVideo(embedUrl) {
   }
 }
 
-import puppeteer from 'puppeteer';
+export async function getSmoothpreVideo(embedUrl) {
+  const html = await (
+    await fetch(embedUrl, {
+      headers: { "User-Agent": "Mozilla/5.0" },
+    })
+  ).text();
 
-export async function getMovearnpreOrSmoothpreVideo(embedUrl) {
-  const browser = await puppeteer.launch({ headless: true });
-  const page = await browser.newPage();
+  const packed = html.match(
+    /eval\(function\(p,a,c,k,e,d\)([\s\S]+?)\)\s*<\/script>/,
+  )?.[0];
+  if (!packed) return null;
 
-  await page.setUserAgent(
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36"
+  const m = packed.match(
+    /}\s*\(\s*'([\s\S]*)'\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*'([\s\S]*)'\s*\.split\(/,
   );
+  if (!m) return null;
 
-  await page.goto(embedUrl, { waitUntil: 'networkidle2' });
+  const k = m[4].split("|"),
+    a = parseInt(m[2]);
+  const decoded = m[1].replace(/\b\w+\b/g, (w) => k[parseInt(w, a)] || w);
 
-  await page.waitForFunction('typeof jwplayer !== "undefined"');
+  const hls4 = decoded.match(/"hls4"\s*:\s*"([^"]+)"/)?.[1];
+  const hls2 = decoded.match(/"hls2"\s*:\s*"([^"]+)"/)?.[1];
 
-  const videoUrl = await page.evaluate(() => {
-    const player = jwplayer();
-    const sources = player?.getPlaylist()?.[0]?.sources;
-    return sources?.[0]?.file || null;
-  });
+  if (hls4)
+    return hls4.startsWith("http") ? hls4 : new URL(embedUrl).origin + hls4;
+  return hls2 || null;
+}
 
-  await browser.close();
-  const finalUrl = embedUrl.split("/").slice(0, 3).join("/") + videoUrl
-  return finalUrl;
+import crypto from "crypto";
+import { cp } from "fs";
+
+const DECRYPT_KEY = Buffer.from("6b69656d7469656e6d75613931316361", "hex"); // kiemtienmua911ca
+const DECRYPT_IV = Buffer.from("313233343536373839306f6975797472", "hex"); // 1234567890oiuytr
+
+
+function decryptApiResponse(hexData) {
+  const decipher = crypto.createDecipheriv(
+    "aes-128-cbc",
+    DECRYPT_KEY,
+    DECRYPT_IV,
+  );
+  const decrypted = Buffer.concat([
+    decipher.update(Buffer.from(hexData, "hex")),
+    decipher.final(),
+  ]);
+  return JSON.parse(decrypted.toString("utf8"));
+}
+
+export async function getEmbed4meVideo(embedUrl) {
+  try {
+    const videoId = new URL(embedUrl).hash.replace("#", "");
+    if (!videoId) return null;
+
+    const { data } = await axios.get(
+      `https://lpayer.embed4me.com/api/v1/video?id=${videoId}&w=1920&h=1080&r=`,
+      { headers: getHeaders(embedUrl) },
+    );
+
+    const json = decryptApiResponse(data);
+    console.log(`https://lpayer.embed4me.com${json.hlsVideoTiktok}?v=${json.version}`)
+    return (
+      (json.hlsVideoTiktok
+        ? `https://lpayer.embed4me.com${json.hlsVideoTiktok}?v=${json.version}`
+        : null) ||
+      json.cf ||
+      json.source ||
+      null
+    );
+  } catch (err) {
+    console.error("Erreur getEmbed4meVideo:", err.message);
+    return null;
+  }
 }

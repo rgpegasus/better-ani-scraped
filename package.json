@@ -1,7 +1,7 @@
 {
   "name": "better-ani-scraped",
-  "version": "1.7.85",
-  "description": "Scrape anime data from different sources (only anime-sama, animepahe and crunchyroll for the moment)",
+  "version": "1.8.5",
+  "description": "Scrape anime data from different sources (only anime-sama for the moment)",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -17,13 +17,8 @@
   "license": "MIT",
   "type": "module",
   "dependencies": {
-    "@ablanc/crunchyroll": "^2.4.0",
     "axios": "^1.8.4",
-    "cheerio": "^1.0.0",
-    "playwright": "^1.52.0",
-    "puppeteer": "^24.8.1",
-    "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2"
+    "cheerio": "^1.0.0"
   },
   "repository": {
     "type": "git",

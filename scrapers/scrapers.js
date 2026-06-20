@@ -1,18 +1,12 @@
 import * as animesama from "./animesama.js";
-import * as animepahe from "./animepahe.js";
-import * as crunchyroll from "./crunchyroll.js";
 
 export class AnimeScraper {
   constructor(source) {
-    if (source === "animepahe") {
-      this.source = animepahe;
-    } else if (source === "animesama") {
+    if (source === "animesama") {
       this.source = animesama;
-    } else if (source === "crunchyroll") {
-      this.source = crunchyroll;
     } else {
       throw new Error(
-        'Invalid source. Choose either "animepahe", "crunchyroll" or "animesama".',
+        'Invalid source. Choose either "animesama".',
       );
     }
   }
@@ -54,6 +48,17 @@ export class AnimeScraper {
     } catch (error) {
       console.error(
         `This scraper does not have the getEpisodeTitles function implemented or an error happened -> ${error}`,
+      );
+      return [];
+    }
+  }
+
+  async getTitles(seasonUrl, ...rest) {
+    try {
+      return await this.source.getTitles(seasonUrl, ...rest);
+    } catch (error) {
+      console.error(
+        `This scraper does not have the getTitles function implemented or an error happened -> ${error}`,
       );
       return [];
     }
@@ -170,7 +175,7 @@ export class AnimeScraper {
       );
     } catch (error) {
       console.error(
-        `This scraper does not have the getAllTitleScans function implemented or an error happened -> ${error}`,
+        `This scraper does not have the getChapterTitles function implemented or an error happened -> ${error}`,
       );
       if (includeEncodedTitle) {
         return {};

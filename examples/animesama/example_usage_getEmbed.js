@@ -5,7 +5,7 @@ const main = async () => {
   const BASE_URL = await animesama.getWorkingUrl();
   const seasonUrl = `${BASE_URL}/catalogue/one-piece/saison11/vostfr`;
   
-  const embeds = await animesama.getEmbed(seasonUrl, ["smoothpre", "movearnpre", "sibnet", "vidmoly", "sendvid"], true, true);
+  const embeds = await animesama.getEmbed(seasonUrl, ["smoothpre", "sibnet", "vidmoly", "sendvid"], true, true);
   console.log("Embed Links: ", JSON.stringify(embeds, null, 2));
 
 };
