@@ -55,7 +55,6 @@ export async function getVidmolyVideo(embedUrl) {
     if (embedUrl.includes("vidmoly.to/")) {
       embedUrl = embedUrl.replace("vidmoly.to/", "vidmoly.biz/");
     }
-    console.log(embedUrl);
     const { data } = await axios.get(embedUrl, {
       headers: getHeaders(embedUrl),
     });
@@ -150,7 +149,6 @@ export async function getEmbed4meVideo(embedUrl) {
     );
 
     const json = decryptApiResponse(data);
-    console.log(`https://lpayer.embed4me.com${json.hlsVideoTiktok}?v=${json.version}`)
     return (
       (json.hlsVideoTiktok
         ? `https://lpayer.embed4me.com${json.hlsVideoTiktok}?v=${json.version}`

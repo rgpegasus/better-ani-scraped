@@ -1,6 +1,6 @@
 {
   "name": "better-ani-scraped",
-  "version": "1.8.5",
+  "version": "1.8.7",
   "description": "Scrape anime data from different sources (only anime-sama for the moment)",
   "main": "index.js",
   "scripts": {
@@ -17,8 +17,8 @@
   "license": "MIT",
   "type": "module",
   "dependencies": {
-    "axios": "^1.8.4",
-    "cheerio": "^1.0.0"
+    "axios": "^1.18.1",
+    "cheerio": "^1.2.0"
   },
   "repository": {
     "type": "git",

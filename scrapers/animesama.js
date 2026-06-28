@@ -554,11 +554,11 @@ export async function getAvailableLanguages(
 ) {
   await init();
   const languageLinks = [];
-
+  const fullLink = seasonUrl.endsWith("/") ? seasonUrl : seasonUrl+"/"
   for (let language of wantedLanguages.length
     ? wantedLanguages
     : allAvailableLanguages) {
-    const languageUrl = seasonUrl
+    const languageUrl = fullLink
       .split("/")
       .map((s, i) => (i === 6 ? language : s))
       .join("/");
