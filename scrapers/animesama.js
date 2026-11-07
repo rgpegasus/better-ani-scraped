@@ -1,61 +1,39 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
-import fs from "fs";
-import path from "path";
-import { promisify } from "util";
-import { exec as execCallback } from "child_process";
-import { URL } from "url";
-
-const execAsync = promisify(execCallback);
 
 const LIST_URL = "https://anime-sama.pw";
 
+
 export async function getWorkingUrl(listUrl = LIST_URL) {
-  const res = await axios.get(listUrl);
-  const $ = cheerio.load(res.data);
+  try {
+    const res = await axios.get(listUrl);
+    const $ = cheerio.load(res.data);
 
-  const btn = $(".btn-primary").attr("href");
-  if (!btn) return null;
+    const btn = $(".btn-primary").attr("href");
 
-  let href = new URL(btn, listUrl).href;
-  if (href.endsWith("/")) {
-    href = href.slice(0, -1);
-  }
-
-  let currentUrl = href;
-  const MAX_REDIRECTS = 10;
-
-  for (let i = 0; i < MAX_REDIRECTS; i++) {
-    try {
-      await axios.get(currentUrl, {
-        maxRedirects: 0,
-        responseType: "stream",
-        headers: {
-          "User-Agent": "Mozilla/5.0",
-        },
-      });
-      return currentUrl;
-    } catch (err) {
-      const response = err.response;
-      if (
-        response &&
-        [301, 302, 303, 307, 308].includes(response.status) &&
-        response.headers.location
-      ) {
-        let nextUrl = new URL(response.headers.location, currentUrl).href;
-        if (nextUrl.endsWith("/")) {
-          nextUrl = nextUrl.slice(0, -1);
-        }
-
-        currentUrl = nextUrl;
-        continue;
-      }
-
-      return currentUrl;
+    if (!btn) {
+      throw new Error("Lien du site introuvable");
     }
-  }
+    const initialUrl = new URL(btn, listUrl).href;
 
-  throw new Error("Too many redirects");
+    const response = await fetch(initialUrl, {
+      method: "GET",
+      headers: {
+        "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    let finalUrl = response.url || initialUrl;
+    finalUrl = finalUrl.replace(/\/+$/, "");
+    return finalUrl;
+
+  } catch (err) {
+    console.error("[URL] Erreur :", err);
+    throw err;
+  }
 }
 
 let BASE_URL;
@@ -66,12 +44,18 @@ async function init() {
   CATALOGUE_URL = `${BASE_URL}/catalogue`;
 }
 
+const MOBILE_USER_AGENT = 
+  "Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36";
+
 function getHeaders(referer = BASE_URL) {
   return {
-    "User-Agent": "Mozilla/5.0",
-    "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
-    Referer: referer,
-  };
+    "User-Agent": MOBILE_USER_AGENT,
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Cache-Control": "no-cache",
+    "Pragma": "no-cache",
+    "Referer": referer,
+  }
 }
 
 function isWanted(text, list) {
@@ -100,7 +84,117 @@ const languageMap = {
   qc: "vqc",
 };
 let mainAvailableLanguages = ["vostfr", "vf", "vastfr"];  
-let allAvailableTypes = ["Anime", "Film", "Scans", "Autres"];
+let allAvailableTypes = ["Anime", "Film", "Scans", "Webtoon", "Autres"];
+
+function parseCatalog($, html, wantedLanguages, wantedTypes) {
+  const url = html.attr("href");
+  const title = html.find(".as-carte-titre").text().trim();
+  const cover = html.find("img").first().attr("src");
+
+  const typesRaw = html
+    .find(".as-carte-badges .as-badge")
+    .map((_, el) => $(el).text().trim())
+    .get()
+    .filter(Boolean);
+
+  let filteredTypes =
+    wantedTypes.length === 0
+      ? typesRaw
+      : wantedTypes.filter((type) => isWanted(type, typesRaw));
+  const hasScans = filteredTypes.some((t) => t.toLowerCase() === "scans");
+  const languagesRaw = html
+    .find(".as-carte-badges .as-drapeau img")
+    .map((_, el) => {
+      const lang = $(el).attr("title")?.trim();
+      return lang ? languageMap[lang.toLowerCase()] ?? lang : null;
+    })
+    .get()
+    .filter(Boolean);
+  let filteredLanguages =
+    wantedLanguages.length === 0
+      ? languagesRaw
+      : wantedLanguages.filter((lang) => isWanted(lang, languagesRaw));
+  if (
+    title &&
+    url &&
+    filteredTypes.length > 0 &&
+    (filteredLanguages.length > 0 || hasScans)
+  ) {
+    return {
+      url: url.startsWith(CATALOGUE_URL)
+        ? url
+        : url.startsWith("/catalogue")
+          ? `${BASE_URL}${url}`
+          : `${CATALOGUE_URL}${url}`,
+      title,
+      cover,
+      types: filteredTypes,
+      languages: filteredLanguages,
+    };
+  }
+}
+
+function parseCarousel($, html, wantedLanguages, type = "") {
+  const url = html.find("a.as-carte-lien").attr("href");
+  const title = html.find(".as-carte-titre").text().trim()
+  const cover = html.attr("data-img") ?? null
+  const types = html
+    .find(".as-carte-badges .as-badge")
+    .map((_, badge) => $(badge).text().trim())
+    .get()
+    .filter(Boolean)
+  
+  const languagesRaw = html
+    .find(".as-carte-badges .as-drapeau img")
+    .map((_, img) => $(img).attr("title")?.trim()) 
+    .get()
+    .filter(Boolean)
+  let filteredLanguages =
+    wantedLanguages.length === 0
+      ? languagesRaw
+      : wantedLanguages.filter((lang) => isWanted(lang, languagesRaw));
+  
+  if (
+    title &&
+    url &&
+    filteredLanguages.length > 0
+  ) {
+    if(type === "") {
+      return {
+        url: url.startsWith(CATALOGUE_URL)
+          ? url
+          : url.startsWith("/catalogue")
+            ? `${BASE_URL}${url}`
+            : `${CATALOGUE_URL}${url}`,
+        title,
+        cover,
+        types,
+        languages: filteredLanguages,
+      };
+    } else {
+      const subTitle = html
+        .find(".as-carte-info span")
+        .first()
+        .text()
+        .trim()
+        .replace(/[A-ZÀ-ÖØ-Þ]/g, (char) =>
+          char.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        );
+      return {
+        url: url.startsWith(CATALOGUE_URL)
+          ? url
+          : url.startsWith("/catalogue")
+            ? `${BASE_URL}${url}`
+            : `${CATALOGUE_URL}${url}`,
+        title,
+        cover,
+        types,
+        language:filteredLanguages[0],
+        [type]: subTitle,
+      };
+    }
+  }
+}
 
 export async function searchAnime(
   query,
@@ -122,86 +216,15 @@ export async function searchAnime(
         : `${CATALOGUE_URL}/?search=${encodeURIComponent(query)}&page=${pageNum}`;
     const html = await fetchHtml(searchUrl);
     const $ = cheerio.load(html);
-    const containers = $("div.catalog-card > a");
+    const containers = $("#list_catalog > .as-carte > a.as-carte-lien");
 
     containers.each((_, el) => {
       if (results.length >= limit) return false;
 
       const anchor = $(el);
-      const url = anchor.attr("href");
-      const title = anchor.find("h2").first().text().trim();
-      const altRaw = anchor.find("p").first().text().trim();
-      const genres = anchor
-        .find(".genre-tag")
-        .map((_, el) => $(el).text().trim())
-        .get()
-        .filter(Boolean);
-      const cover = anchor.find("img").first().attr("src");
-      const synopsis = anchor
-        .find("div.synopsis-content")
-        .first()
-        .text()
-        .trim();
-        
-      const altTitles = altRaw
-        ? altRaw
-            .split(",")
-            .map((t) => t.trim())
-            .filter(Boolean)
-        : [];
-          
-      const typesRaw = anchor
-        .find(".info-row")
-        .filter(
-          (_, row) =>
-            $(row).find(".info-label").text().trim().toLowerCase() === "types",
-        )
-        .find(".info-value")
-        .text()
-        .split(/[,/-]/)
-        .map((t) => t.trim())
-        .filter(Boolean);
-
-      let filteredTypes =
-        wantedTypes.length === 0
-          ? typesRaw
-          : wantedTypes.filter((type) => isWanted(type, typesRaw));
-      const hasScans = filteredTypes.some((t) => t.toLowerCase() === "scans");
-      const languagesRaw = anchor
-        .find(".lang-flag")
-        .map((_, el) => {
-          const lang = $(el).attr("title")?.trim();
-
-          if (!lang) return null;
-
-          return languageMap[lang.toLowerCase()] ?? lang;
-        })
-        .get()
-        .filter(Boolean);
-      let filteredLanguages =
-        wantedLanguages.length === 0
-          ? languagesRaw
-          : wantedLanguages.filter((lang) => isWanted(lang, languagesRaw));
-      if (
-        title &&
-        url &&
-        filteredTypes.length > 0 &&
-        (filteredLanguages.length > 0 || hasScans)
-      ) {
-        results.push({
-          url: url.startsWith(CATALOGUE_URL)
-            ? url
-            : url.startsWith("/catalogue")
-              ? `${BASE_URL}${url}`
-              : `${CATALOGUE_URL}${url}`,
-          title,
-          altTitles,
-          cover,
-          synopsis,
-          genres,
-          types: filteredTypes,
-          languages: filteredLanguages,
-        });
+      const data = parseCatalog($, anchor, wantedLanguages, wantedTypes);
+      if(data) {
+        results.push(data);
       }
     });
     return containers.length > 0;
@@ -228,7 +251,6 @@ export async function getSeasons(
   const res = await axios.get(animeUrl, { headers: getHeaders(CATALOGUE_URL) });
   const html = res.data.replace(/<!--[\s\S]*?-->/g, "");
   const mainAnimeOnly = {};
-
   if (wantedTypes.includes("Anime") || wantedTypes.length === 0) {
     mainAnimeOnly.anime =
       html.match(/<h2[^>]*>\s*Anime\s*<\/h2>[\s\S]*?(?=<h2|$)/gi) || [];
@@ -499,9 +521,9 @@ export async function getAnimeInfo(animeUrl) {
   const res = await axios.get(animeUrl, { headers: getHeaders(CATALOGUE_URL) });
   const $ = cheerio.load(res.data);
 
-  const match = res.data.match(/imgOeuvre"[^>]*src="([^"]+)"/);
-  const cover = match ? match[1] : null;
-  const title = $("div.my-2 h1").text().trim();
+  const cover = $(".oe-affiche img").attr("src") ?? null;
+  const title = $("#titreOeuvre").text().trim();
+  const banner = $("div.oe-fond > img").attr("src") ?? null;
   const altRaw = $("#titreAlter").text();
   const altTitles = altRaw?.includes(",")
     ? altRaw
@@ -520,27 +542,23 @@ export async function getAnimeInfo(animeUrl) {
             .filter(Boolean)
         : [];
 
-  const genres = $(".genres-wrap .genre-pill").map((i, el) => $(el).text().trim()).get();
-  const synopsis = $("h2:contains('Synopsis')").next("p").text().trim();
-  const similaires = $("#containerSimilaires .catalog-card")
-    .map((i, el) => ({
-      url: $(el).find("a").attr("href").startsWith(CATALOGUE_URL)
-      ? $(el).find("a").attr("href")
-      : $(el).find("a").attr("href").startsWith("/catalogue")
-        ? `${BASE_URL}${$(el).find("a").attr("href")}`
-        : `${CATALOGUE_URL}${$(el).find("a").attr("href")}`,
-      title: $(el).find(".card-title").text().trim(),
-      altTitles: $(el).find(".alternate-titles").text().split(",").map((t) => t.trim()).filter(Boolean),
-      cover: $(el).find("img.card-image").attr("src"),
-      genres: $(el).find(".info-value").eq(1).text().split(",").map((lang) => lang.trim()),
-      languages: $(el).find(".info-value").text().split(",").map((lang) => lang.trim()),
-      
-    }))
-    .get();
+  const genres = $(".oe-genres .genre-pill").map((i, el) => $(el).text().trim()).get();
+  const synopsis = $("#synopsisText").text().trim();
+  const similaires = $("#containerSimilaires .as-carte-oeuvre")
+  .map((_, el) => {
+    const anchor = $(el);
+    const data = parseCarousel($, anchor, []);
+    if(data) {
+      return data;
+    }
+  })
+  .get()
+  .filter((anime) => anime.url && anime.title);
   return {
     title,
     altTitles,
     cover,
+    banner,
     genres,
     synopsis,
     similaires,
@@ -600,84 +618,13 @@ export async function getAllAnime(
     const res = await axios.get(url, { headers: getHeaders(CATALOGUE_URL) });
     const $ = cheerio.load(res.data);
 
-    const containers = $("div.catalog-card > a");
+    const containers = $("#list_catalog > .as-carte > a.as-carte-lien");
 
     containers.each((_, el) => {
       const anchor = $(el);
-      const url = anchor.attr("href");
-      const title = anchor.find("h2").first().text().trim();
-      const altRaw = anchor.find("p").first().text().trim();
-      const genres = anchor
-        .find(".genre-tag")
-        .map((_, el) => $(el).text().trim())
-        .get()
-        .filter(Boolean);
-      const cover = anchor.find("img").first().attr("src");
-      const synopsis = anchor
-        .find("div.synopsis-content")
-        .first()
-        .text()
-        .trim();
-
-      const altTitles = altRaw
-        ? altRaw
-            .split(",")
-            .map((t) => t.trim())
-            .filter(Boolean)
-        : [];
-  
-      const typesRaw = anchor
-        .find(".info-row")
-        .filter(
-          (_, row) =>
-            $(row).find(".info-label").text().trim().toLowerCase() === "types",
-        )
-        .find(".info-value")
-        .text()
-        .split(/[,/-]/)
-        .map((t) => t.trim())
-        .filter(Boolean);
-
-      let filteredTypes =
-        wantedTypes.length === 0
-          ? typesRaw
-          : wantedTypes.filter((type) => isWanted(type, typesRaw));
-      const hasScans = filteredTypes.some((t) => t.toLowerCase() === "scans");
-      const languagesRaw = anchor
-        .find(".lang-flag")
-        .map((_, el) => {
-          const lang = $(el).attr("title")?.trim();
-
-          if (!lang) return null;
-
-          return languageMap[lang.toLowerCase()] ?? lang;
-        })
-        .get()
-        .filter(Boolean);
-      let filteredLanguages =
-        wantedLanguages.length === 0
-          ? languagesRaw
-          : wantedLanguages.filter((lang) => isWanted(lang, languagesRaw));
-      if (
-        title &&
-        url &&
-        filteredTypes.length > 0 &&
-        (filteredLanguages.length > 0 || hasScans)
-      ) {
-        animeLinks.push({
-          url: url.startsWith(CATALOGUE_URL)
-            ? url
-            : url.startsWith("/catalogue")
-              ? `${BASE_URL}${url}`
-              : `${CATALOGUE_URL}${url}`,
-          title,
-          altTitles,
-          cover,
-          synopsis,
-          genres,
-          types: filteredTypes,
-          languages: filteredLanguages,
-        });
+      const data = parseCatalog($, anchor, wantedLanguages, wantedTypes);
+      if(data) {
+        animeLinks.push(data);
       }
     });
 
@@ -719,8 +666,7 @@ export async function getAllAnime(
       ];
       if (includeSeasons) await enrichWithSeasons(uniqueLinks);
 
-      fs.writeFileSync(output, JSON.stringify(uniqueLinks, null, 2), "utf-8");
-      return true;
+      return uniqueLinks;
     }
   } catch (err) {
     console.error("error :", err.message);
@@ -739,36 +685,11 @@ export async function getLatestEpisodes(
     const container = $("#containerAjoutsAnimes");
     const episodes = [];
 
-    container.find("a").each((_, el) => {
+    container.find(".as-carte-anime").each((_, el) => {
       const anchor = $(el);
-      let url = anchor.attr("href");
-      url = url.startsWith(CATALOGUE_URL)
-        ? url
-        : url.startsWith("/catalogue")
-          ? `${BASE_URL}${url}`
-          : `${CATALOGUE_URL}${url}`;
-      const title = anchor.find("h2").text().trim();
-      const cover = anchor.find("img").attr("src");
-      const language = url.split("/").slice(6, 7).join("");
-      const episode = anchor.find(".info-text").text().trim();
-      if (
-        title &&
-        url &&
-        cover &&
-        language &&
-        episode &&
-        (wantedLanguages.length === 0 ||
-          wantedLanguages
-            .map((l) => l.toLowerCase())
-            .includes(language.toLowerCase()))
-      ) {
-        episodes.push({
-          title,
-          url,
-          cover,
-          language,
-          episode,
-        });
+      const data = parseCarousel($, anchor, wantedLanguages, "episode");
+      if(data) {
+        episodes.push(data);
       }
     });
 
@@ -788,44 +709,11 @@ export async function getLatestScans(wantedLanguages = allAvailableLanguages) {
     const container = $("#containerAjoutsScans");
     const scans = [];
 
-    container.find("a").each((_, el) => {
+    container.find(".as-carte-scan").each((_, el) => {
       const anchor = $(el);
-      let url = anchor.attr("href");
-      url = url.startsWith(CATALOGUE_URL)
-        ? url
-        : url.startsWith("/catalogue")
-          ? `${BASE_URL}${url}`
-          : `${CATALOGUE_URL}${url}`;
-      const title = anchor.find("h2").text().trim();
-      const cover = anchor.find("img").attr("src");
-      const type = anchor
-        .find(".badge-text")
-        .first()
-        .text()
-        .trim()
-        .toLowerCase();
-      const language = url.split("/").slice(6, 7).join("");
-      const chapter = anchor.find(".info-text").text().trim();
-      if (
-        title &&
-        url &&
-        cover &&
-        type &&
-        language &&
-        chapter &&
-        (wantedLanguages.length === 0 ||
-          wantedLanguages
-            .map((l) => l.toLowerCase())
-            .includes(language.toLowerCase()))
-      ) {
-        scans.push({
-          title,
-          url,
-          cover,
-          type,
-          language,
-          chapter,
-        });
+      const data = parseCarousel($, anchor, wantedLanguages, "chapter");
+      if(data) {
+        scans.push(data);
       }
     });
 
@@ -849,78 +737,10 @@ export async function getRandomAnime(
     });
 
     const $ = cheerio.load(res.data);
-
-    const anchor = $("div.catalog-card > a");
-    const url = anchor.attr("href");
-    const title = anchor.find("h2").first().text().trim();
-    const altRaw = anchor.find("p").first().text().trim();
-    const genres = anchor
-      .find(".genre-tag")
-      .map((_, el) => $(el).text().trim())
-      .get()
-      .filter(Boolean);
-    const cover = anchor.find("img").first().attr("src");
-    const synopsis = anchor.find("div.synopsis-content").first().text().trim();
-
-    const altTitles = altRaw
-      ? altRaw
-          .split(",")
-          .map((t) => t.trim())
-          .filter(Boolean)
-      : [];
-  
-    const typesRaw = anchor
-      .find(".info-row")
-      .filter(
-        (_, row) =>
-          $(row).find(".info-label").text().trim().toLowerCase() === "types",
-      )
-      .find(".info-value")
-      .text()
-      .split(/[,/-]/)
-      .map((t) => t.trim())
-      .filter(Boolean);
-
-    let filteredTypes =
-      wantedTypes.length === 0
-        ? typesRaw
-        : wantedTypes.filter((type) => isWanted(type, typesRaw));
-    const hasScans = filteredTypes.some((t) => t.toLowerCase() === "scans");
-    const languagesRaw = anchor
-      .find(".lang-flag")
-      .map((_, el) => {
-        const lang = $(el).attr("title")?.trim();
-
-        if (!lang) return null;
-
-        return languageMap[lang.toLowerCase()] ?? lang;
-      })
-      .get()
-      .filter(Boolean);
-    let filteredLanguages =
-      wantedLanguages.length === 0
-        ? languagesRaw
-        : wantedLanguages.filter((lang) => isWanted(lang, languagesRaw));
-    if (
-      title &&
-      url &&
-      filteredTypes.length > 0 &&
-      (filteredLanguages.length > 0 || hasScans)
-    ) {
-      return {
-        url: url.startsWith(CATALOGUE_URL)
-          ? url
-          : url.startsWith("/catalogue")
-            ? `${BASE_URL}${url}`
-            : `${CATALOGUE_URL}${url}`,
-        title,
-        altTitles,
-        cover,
-        synopsis,
-        genres,
-        types: filteredTypes,
-        languages: filteredLanguages,
-      };
+    const anchor = $("#list_catalog > .as-carte > a.as-carte-lien");
+    const data = parseCatalog($, anchor, wantedLanguages, wantedTypes);
+    if(data) {
+      return data;
     } else {
       if (maxAttempts === null || attempt < maxAttempts) {
         return await getRandomAnime(
@@ -935,7 +755,7 @@ export async function getRandomAnime(
     }
   } catch (err) {
     console.error("Failed to fetch random anime:", err.message);
-    return [];
+    return null;
   }
 }
 

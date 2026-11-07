@@ -5,7 +5,7 @@ const main = async () => {
   const BASE_URL = await animesama.getWorkingUrl();
   const scansUrl = `${BASE_URL}/catalogue/hajime-no-ippo/scan/vf/`;
   console.time("Temps récupération scans");
-  const scansImgUrl = await animesama.getImgScans(scansUrl, 0, 12, "Hajime%20no%20Ippo");
+  const scansImgUrl = await animesama.getImgScans(scansUrl, 0, 12, "Hajime%20no%20Ippo%20");
   console.log("Images Scans: ", scansImgUrl);
 };
 
