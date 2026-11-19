@@ -1,27 +1,23 @@
 import * as extractor from "./extractVideoUrl.js";
+export * as utilityFunctions from "./functions.js";
+
+const EXTRACTORS = {
+  sendvid: extractor.getSendvidVideo,
+  smoothpre: extractor.getEarnVideo,
+  callistanise: extractor.getEarnVideo,
+  minochinos: extractor.getEarnVideo,
+  ansembed: extractor.getAnsembedVideo,
+  uqload: extractor.getUqloadVideo,
+  susanexpectcare : extractor.getVoeVideo,
+  // sibnet: extractor.getSibnetVideo,
+  // vidmoly: extractor.getVidmolyVideo,
+  // embed4me: extractor.getEmbed4meVideo,
+};
 
 export async function getVideoUrlFromEmbed(source, embedUrl) {
-  // if (source === "sibnet") {
-  //   return await extractor.getSibnetVideo(embedUrl);
-  // }
-  if (source === "sendvid") {
-    return await extractor.getSendvidVideo(embedUrl);
+  const fn = EXTRACTORS[source];
+  if (!fn) {
+    throw new Error(`Unsupported embed source: ${source}`);
   }
-  // if (source === "vidmoly") { 
-  //   return await extractor.getVidmolyVideo(embedUrl);
-  // }
-  if (source === "smoothpre" ) { 
-    return await extractor.getSmoothpreVideo(embedUrl);
-  }
-  // if (source === "embed4me") {
-  //   return await extractor.getEmbed4meVideo(embedUrl);
-  // }
-  if (source === "ansembed") {
-    return await extractor.getAnsembedVideo(embedUrl);
-  }
-  if (source === "uqload") {
-    return await extractor.getUqloadVideo(embedUrl);
-  }
-
-  throw new Error(`Unsupported embed source: ${source}`);
+  return fn(embedUrl);
 }

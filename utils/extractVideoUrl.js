@@ -1,7 +1,7 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
 import CryptoJS from "crypto-js";
-
+import { AnimeScraper } from "../index.js";
 const getHeaders = (referer = "") => ({
   Accept: "*/*",
   Referer: referer,
@@ -104,10 +104,10 @@ export async function getVidmolyVideo(embedUrl) {
   }
 }
 
-export async function getSmoothpreVideo(embedUrl) {
-  const html = await (
-    await fetch(embedUrl, { headers: getHeaders(embedUrl) })
-  ).text();
+export async function getEarnVideo(embedUrl) {
+  const animesama = new AnimeScraper('animesama');
+  const BASE_URL = await animesama.getWorkingUrl();
+  const html = await ( await fetch(embedUrl, { headers: getHeaders(BASE_URL) })).text();
 
   const packed = html.match(
     /eval\(function\(p,a,c,k,e,d\)([\s\S]+?)\)\s*<\/script>/
@@ -182,9 +182,7 @@ export async function getAnsembedVideo(embedUrl) {
 
 export async function getUqloadVideo(embedUrl) {
   try {
-    const { data } = await axios.get(embedUrl, {
-      headers: getHeaders(),
-    });
+    const { data } = await axios.get(embedUrl, { headers: getHeaders() });
 
     if (!data.includes("eval(function")) return null;
 
@@ -215,4 +213,27 @@ export async function getUqloadVideo(embedUrl) {
     console.error("Erreur getUqloadVideo:", err.message);
     return null;
   }
+}
+
+export async function getVoeVideo(embedUrl) {
+  const { data } = await axios.get(embedUrl, { headers: getHeaders() });
+  const $ = cheerio.load(data);
+
+  const payload = $('script[type="application/json"]')
+    .toArray()
+    .map((el) => { try { return JSON.parse($(el).html()); } catch { return null; } })
+    .find((v) => Array.isArray(v) && typeof v[0] === "string")?.[0];
+  if (!payload) throw new Error("getVoeVideo : payload introuvable");
+  const rot13 = payload.replace(/[a-z]/gi, (c) => {
+    const base = c <= "Z" ? 65 : 97;
+    return String.fromCharCode(((c.charCodeAt(0) - base + 13) % 26) + base);
+  });
+  const shifted = [...atob(rot13.replace(/@\$|\^\^|~@|%\?|\*~|!!|#&|_/g, ""))]
+    .map((c) => String.fromCharCode(c.charCodeAt(0) - 3))
+    .reverse()
+    .join("");
+
+  const videoUrl = atob(shifted).replaceAll("\\/", "/").match(/https?:\/\/[^"\s]+?\.m3u8[^"\s]*/i)?.[0];
+  if (!videoUrl) throw new Error("getVoeVideo : URL m3u8 introuvable");
+  return videoUrl;
 }

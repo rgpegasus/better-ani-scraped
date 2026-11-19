@@ -3,9 +3,9 @@ import { AnimeScraper } from "../../index.js"; // REPLACE BY "from 'better-ani-s
 const main = async () => {
   const animesama = new AnimeScraper('animesama');
   const BASE_URL = await animesama.getWorkingUrl();
-  const seasonUrl = `${BASE_URL}/catalogue/jojos-bizarre-adventure/saison1/vf`;
+  const seasonUrl = `${BASE_URL}/catalogue/the-vermilion-mask/saison1/vostfr/`;
   
-  const embeds = await animesama.getEmbed(seasonUrl, ["sendvid", "smoothpre", "ansembed", "uqload"], true, false);
+  const embeds = await animesama.getEmbed(seasonUrl, [], true, false);
   console.log("Embed Links: ", JSON.stringify(embeds, null, 2));
 
 };

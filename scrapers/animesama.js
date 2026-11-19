@@ -18,9 +18,8 @@ export async function getWorkingUrl(listUrl = LIST_URL) {
 
     const response = await fetch(initialUrl, {
       method: "GET",
-      headers: {
-        "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
-      },
+      headers: {"Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8"},
+      signal: AbortSignal.timeout(10000),
     });
 
     if (!response.ok) {
@@ -39,21 +38,34 @@ export async function getWorkingUrl(listUrl = LIST_URL) {
 let BASE_URL;
 let CATALOGUE_URL;
 
-async function init() {
-  BASE_URL = await getWorkingUrl();
-  CATALOGUE_URL = `${BASE_URL}/catalogue`;
+axios.defaults.timeout = 15000;
+
+const INIT_TTL_MS = 30 * 60 * 1000;
+let initAt = 0;
+let initPromise = null;
+
+async function init(force = false) {
+  if (!force && BASE_URL && Date.now() - initAt < INIT_TTL_MS) return;
+  if (!initPromise) {
+    initPromise = getWorkingUrl()
+      .then((url) => {
+        BASE_URL = url;
+        CATALOGUE_URL = `${url}/catalogue`;
+        initAt = Date.now();
+      })
+      .finally(() => { initPromise = null; });
+  }
+  return initPromise;
 }
 
 const MOBILE_USER_AGENT = 
-  "Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36";
+  "Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0  Mobile Safari/537.36";
 
 function getHeaders(referer = BASE_URL) {
   return {
     "User-Agent": MOBILE_USER_AGENT,
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
     "Accept-Language": "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7",
-    "Cache-Control": "no-cache",
-    "Pragma": "no-cache",
     "Referer": referer,
   }
 }
@@ -247,8 +259,7 @@ export async function getSeasons(
   wantedLanguages = allAvailableLanguages,
   wantedTypes = ["Anime", "Kai", "Scans"],
 ) {
-  await init();
-  const res = await axios.get(animeUrl, { headers: getHeaders(CATALOGUE_URL) });
+  const res = await axios.get(animeUrl, { headers: getHeaders(animeUrl) });
   const html = res.data.replace(/<!--[\s\S]*?-->/g, "");
   const mainAnimeOnly = {};
   if (wantedTypes.includes("Anime") || wantedTypes.length === 0) {
@@ -264,7 +275,6 @@ export async function getSeasons(
       html.match(/<h2[^>]*>\s*Manga\s*<\/h2>[\s\S]*?(?=<h2|$)/gi) || [];
   }
 
-  const animeId = animeUrl.split("/")[4];
   let seasons = [];
   for (const [typeKey, sections] of Object.entries(mainAnimeOnly)) {
     for (const sectionHtml of sections) {
@@ -276,7 +286,6 @@ export async function getSeasons(
             $(script).html().includes(str),
           ),
         );
-
       for (const script of scriptTags) {
         const content = $(script).html();
         const uncommentedContent = content
@@ -285,47 +294,50 @@ export async function getSeasons(
 
         const matches = [
           ...uncommentedContent.matchAll(
-            /(panneauAnime|panneauScan)\("([^"]+)", "([^"]+)"\);/g,
+            /(panneauAnime|panneauScan)\("([^"]+)", "([^"]+)"\)/g,
           ),
         ];
 
-        for (let match of matches) {
-          const title = match[2];
-          const seasonId = match[3].split("/")[0];
-          for (const lang of wantedLanguages.length
-            ? wantedLanguages
-            : allAvailableLanguages) {
-            const fullUrl = `${CATALOGUE_URL}/${animeId}/${seasonId}/${lang}`;
-            try {
-              const check = await axios.head(fullUrl, {
-                headers: getHeaders(animeUrl),
-              });
-              if (check.status === 200) {
-                if (title) {
-                  seasons.push({
+        const langs = wantedLanguages.length ? wantedLanguages : allAvailableLanguages;
+
+        const found = await Promise.all(
+          matches.map(async (match) => {
+            const title = match[2];
+            if (!title) return null;
+            const seasonId = match[3].split("/")[0];
+            for (const lang of langs) {
+              const fullUrl = `${animeUrl.split("/").slice(0,5).join("/")}/${seasonId}/${lang}`;
+              try {
+                const res = await axios.head(fullUrl, { headers: getHeaders(animeUrl) });
+                if (res.status === 200) {
+                  return {
                     title,
                     url: fullUrl,
                     language: lang,
-                    type: typeKey?.[0].toUpperCase() + typeKey?.substring(1),
-                  });
+                    type: typeKey ? typeKey[0].toUpperCase() + typeKey.slice(1) : "",
+                  };
                 }
-                break;
-              }
-            } catch {}
-          }
-        }
+              } catch {}
+            }
+            return null;
+          })
+        );
+
+        seasons.push(...found.filter(Boolean));
       }
     }
   }
   return seasons;
 }
 
-export async function getEpisodeTitles(seasonUrl, numberEpisode) {
-  const res = await axios.get(seasonUrl, {
-    headers: getHeaders(seasonUrl),
-  });
+export async function getEpisodeTitles(seasonUrl, numberEpisode, html = null) {
+  const page = html ?? (
+    await axios.get(seasonUrl, {
+      headers: getHeaders(seasonUrl),
+    })
+  ).data;
 
-  const $ = cheerio.load(res.data);
+  const $ = cheerio.load(page);
   const scriptTags = $("script")
     .toArray()
     .filter((script) =>
@@ -396,11 +408,57 @@ export async function getEpisodeTitles(seasonUrl, numberEpisode) {
   return listEpisodes;
 }
 
+const LIEN_CONCURRENCY = 3;   
+let lienActive = 0;
+const lienQueue = [];
+function limitLien(task) {
+  return new Promise((resolve, reject) => {
+    const run = async () => {
+      lienActive++;
+      try { 
+        resolve(await task()); 
+      } catch (e) { 
+        reject(e); 
+      }
+      finally { 
+        lienActive--; 
+        lienQueue.shift()?.(); 
+      }
+    };
+    lienActive < LIEN_CONCURRENCY ? run() : lienQueue.push(run);
+  });
+}
+
+const lienCache = new Map();    
+const lienInflight = new Map();
+
+export function resolveLienUrl(url, referer = url) {
+  const hit = lienCache.get(url);
+  if (hit && hit.expires > Date.now()) return Promise.resolve(hit.value);
+  if (lienInflight.has(url)) return lienInflight.get(url);
+
+  const p = limitLien(async () => {
+    try {
+      const { data } = await axios.get(url, { headers: getHeaders(referer) });
+      const value = data?.u || null;
+      if (value) lienCache.set(url, { value, expires: Date.now() + 30 * 60 * 1000 });
+      return value;
+    } catch (err) {
+      console.warn("[lien.php]", err.response?.status ?? err.message);
+      return null; 
+    }
+  }).finally(() => lienInflight.delete(url));
+
+  lienInflight.set(url, p);
+  return p;
+}
+
 export async function getEmbed(
   seasonUrl,
-  hostPriority = ["sendvid", "sibnet", "vidmoly", "smoothpre"],
+  hostPriority = ["ansembed", "sendvid", "smoothpre", "uqload", "susanexpectcare"],
   allHost = false,
   includeInfo = false,
+  lazy = false,
 ) {
   const res = await axios.get(seasonUrl, {
     headers: getHeaders(seasonUrl.split("/").slice(0, 5).join("/")),
@@ -408,100 +466,110 @@ export async function getEmbed(
 
   const $ = cheerio.load(res.data);
 
+  const scripts = $("script").toArray().map((s) => $(s).html() || "");
+  const pageScripts = scripts.join("\n");
+
   const seasonTitle =
-    (
-      $("script")
-        .toArray()
-        .map((s) => $(s).html())
-        .find((c) => c && c.includes("#avOeuvre")) || ""
-    ).match(/#avOeuvre"\)\.html\("([^"]+)"/)?.[1] || "Saison inconnue";
+    pageScripts.match(/#avOeuvre"\)\.html\("([^"]+)"/)?.[1] ||
+    "Saison inconnue";
 
-  const scriptTag = $('script[src*="episodes.js"]').attr("src");
-  if (!scriptTag) throw new Error("No episodes script found");
-
-  const scriptUrl = seasonUrl.endsWith("/")
-    ? seasonUrl + scriptTag
-    : seasonUrl + "/" + scriptTag;
-
-  const episodesJs = await axios
-    .get(scriptUrl, { headers: getHeaders(seasonUrl) })
-    .then((r) => r.data);
+  const epsJeton = pageScripts.match(/epsJeton\s*=\s*["']([^"']+)["']/)?.[1];
+  if (!epsJeton) throw new Error("Episode token not found");
 
   const matches = [
-    ...episodesJs.toLowerCase().matchAll(/var\s+(eps\d+)\s*=\s*(\[[^\]]+\])/g),
+    ...pageScripts.matchAll(/var\s+(eps\d+)\s*=\s*(\[[\s\S]*?\])/g),
   ];
+
   if (!matches.length) throw new Error("No episode arrays found");
 
-  let episodeMatrix = [];
-  for (const [, , arrayString] of matches) {
-    try {
-      const links = eval(arrayString);
-      episodeMatrix.push(links);
-    } catch (e) {
-      console.warn("Could not parse embed array:", e);
+  const episodeMatrix = matches.map(([, , arr]) => JSON.parse(arr));
+
+  const titles = await getEpisodeTitles(seasonUrl, episodeMatrix[0].length, res.data);
+  const maxEpisodes = titles.length || Math.max(...episodeMatrix.map((arr) => arr.length));
+
+  const resolveLink = (link) =>
+    link?.startsWith("lien:")
+      ? resolveLienUrl(new URL(`/api/lien.php?j=${epsJeton}&l=${link.slice(5)}`, seasonUrl).href, seasonUrl)
+      : link;
+
+  const finalEmbeds = []; 
+
+  if (lazy) {
+    const toUrl = (link) =>
+      link?.startsWith("lien:")
+        ? new URL(`/api/lien.php?j=${epsJeton}&l=${link.slice(5)}`, seasonUrl).href
+        : link;
+    const lazyEmbeds = [];
+    for (let i = 0; i < maxEpisodes; i++) {
+      const urls = episodeMatrix.map((arr) => (i < arr.length ? toUrl(arr[i]) : null)).filter(Boolean);
+      if (urls.length) lazyEmbeds.push({ title: titles[i] || `Episode ${i + 1}`, url: urls, host: [], lazy: true });
     }
+    return includeInfo
+      ? { episodes: lazyEmbeds, animeInfo: { seasonTitle, episodeCount: maxEpisodes } }
+      : lazyEmbeds;
   }
-  const titles = await getEpisodeTitles(seasonUrl, episodeMatrix[0].length);
-  const maxEpisodes =
-    titles.length || Math.max(...episodeMatrix.map((arr) => arr.length));
-  const finalEmbeds = [];
+  const hasPriority = Array.isArray(hostPriority) && hostPriority.length > 0;
 
   for (let i = 0; i < maxEpisodes; i++) {
-    if (allHost) {
-      const urls = [];
-      const hosts = [];
+    const links = await Promise.all(
+      episodeMatrix.map((arr) => (i < arr.length ? resolveLink(arr[i]) : null)),
+    );
 
-      for (const host of hostPriority) {
-        for (const arr of episodeMatrix) {
-          if (i < arr.length && arr[i].includes(host.toLowerCase())) {
-            if (arr[i].includes("vidmoly.to/")) {
-              arr[i] = arr[i].replace("vidmoly.to/", "vidmoly.biz/");
-            }
-            if (!hosts.includes(host.toLowerCase())) {
-              urls.push(arr[i]);
-              hosts.push(host.toLowerCase());
-            }
-            break;
-          }
-        }
-      }
-      if (urls.length > 0 && hosts.length > 0) {
-        finalEmbeds.push({
-          title: null,
-          url: urls,
-          host: hosts,
-        });
-      }
+    const validUrls = links
+      .filter(Boolean)
+      .map((url) => url.replace("vidmoly.to/", "vidmoly.biz/"));
+
+    let unique = [];
+
+    if (!hasPriority) {
+      unique = validUrls.map((url) => {
+        let host = "unknown";
+        try {
+          const parts = new URL(url).hostname.replace(/^www\./, "").split(".");
+          host = parts.length >= 2 ? parts[parts.length - 2] : parts[0];
+        } catch {}
+        return { url, host };
+      });
     } else {
-      let selectedUrl = null;
-      let selectedHost = null;
+      const candidates = validUrls
+        .map((url) => ({
+          url,
+          host: hostPriority.find((host) =>
+            url.toLowerCase().includes(host.toLowerCase()),
+          ),
+        }))
+        .filter((item) => item.host);
 
-      for (const host of hostPriority) {
-        for (const arr of episodeMatrix) {
-          if (i < arr.length && arr[i].includes(host.toLowerCase())) {
-            selectedUrl = arr[i];
-            selectedHost = host.toLowerCase();
-            break;
-          }
-        }
-        if (selectedUrl) break;
-      }
-      if (selectedUrl?.includes("vidmoly.to/")) {
-        selectedUrl = selectedUrl.replace("vidmoly.to/", "vidmoly.biz/");
-      }
-      if (selectedHost) {
+      const selected = hostPriority
+        .map((host) =>
+          candidates.find(
+            (item) => item.host.toLowerCase() === host.toLowerCase(),
+          ),
+        )
+        .filter(Boolean);
+
+      unique = selected.filter(
+        (item, index, arr) =>
+          arr.findIndex((other) => other.host === item.host) === index,
+      );
+    }
+
+    if (unique.length) {
+      if (allHost || !hasPriority) {
         finalEmbeds.push({
-          title: null,
-          url: selectedUrl,
-          host: selectedHost,
+          title: titles[i] || `Episode ${i + 1}`,
+          url: unique.map((item) => item.url),
+          host: unique.map((item) => item.host.toLowerCase()),
+        });
+      } else {
+        finalEmbeds.push({
+          title: titles[i] || `Episode ${i + 1}`,
+          url: unique[0].url,
+          host: unique[0].host.toLowerCase(),
         });
       }
     }
   }
-
-  finalEmbeds.forEach((embed, i) => {
-    embed.title = titles[i] || `Episode ${i + 1}`;
-  });
 
   if (includeInfo) {
     return {
@@ -511,19 +579,20 @@ export async function getEmbed(
         episodeCount: maxEpisodes,
       },
     };
-  } else {
-    return finalEmbeds;
   }
+
+  return finalEmbeds;
 }
 
 export async function getAnimeInfo(animeUrl) {
   await init();
-  const res = await axios.get(animeUrl, { headers: getHeaders(CATALOGUE_URL) });
+  const res = await axios.get(animeUrl, { headers: getHeaders(animeUrl) });
   const $ = cheerio.load(res.data);
 
   const cover = $(".oe-affiche img").attr("src") ?? null;
   const title = $("#titreOeuvre").text().trim();
-  const banner = $("div.oe-fond > img").attr("src") ?? null;
+  const bannerSrc = $("div.oe-fond > img").attr("src");
+  const banner = bannerSrc?.startsWith("/img") ? `${BASE_URL}${bannerSrc}` : bannerSrc ?? null;
   const altRaw = $("#titreAlter").text();
   const altTitles = altRaw?.includes(",")
     ? altRaw
@@ -570,36 +639,47 @@ export async function getAvailableLanguages(
   wantedLanguages = allAvailableLanguages,
   includeNumberEpisodes = false,
 ) {
-  await init();
-  const languageLinks = [];
-  const fullLink = seasonUrl.endsWith("/") ? seasonUrl : seasonUrl+"/"
-  for (let language of wantedLanguages.length
-    ? wantedLanguages
-    : allAvailableLanguages) {
-    const languageUrl = fullLink
-      .split("/")
-      .map((s, i) => (i === 6 ? language : s))
-      .join("/");
-    try {
-      const res = await axios.get(languageUrl, {
-        headers: getHeaders(CATALOGUE_URL),
-      });
-      if (res.status === 200) {
-        if (includeNumberEpisodes) {
-          const episodeCount = (await getEmbed(languageUrl)).length;
-          languageLinks.push({
-            language: language.toUpperCase(),
-            episodeCount: episodeCount,
-          });
-        } else {
-          languageLinks.push(language.toUpperCase());
+  const link = seasonUrl.split("/").slice(0,6).join("/") + "/";
+  const langs = wantedLanguages.length ? wantedLanguages : allAvailableLanguages;
+
+  const results = await Promise.all(
+    langs.map(async (language) => {
+      const languageUrl = link + language;
+      try {
+        const res = includeNumberEpisodes
+          ? await axios.get(languageUrl, { headers: getHeaders(seasonUrl) })
+          : await axios.head(languageUrl, { headers: getHeaders(seasonUrl) });
+
+        if (res.status !== 200) return null;
+
+        if (!includeNumberEpisodes) {
+          return language.toLowerCase();
         }
+
+        const $ = cheerio.load(res.data);
+        const scripts = $("script")
+          .toArray()
+          .map((el) => $(el).html() || "")
+          .join("\n");
+        const lengths = [...scripts.matchAll(/var\s+eps\d+\s*=\s*(\[[\s\S]*?\])/g)].map((m) => {
+          try {
+            return JSON.parse(m[1]).length;
+          } catch {
+            return 0;
+          }
+        });
+
+        return {
+          language: language.toLowerCase(),
+          episodeCount: lengths.length ? Math.max(...lengths) : 0,
+        };
+      } catch {
+        return null;
       }
-    } catch (error) {
-      continue;
-    }
-  }
-  return languageLinks;
+    }),
+  );
+
+  return results.filter(Boolean);
 }
 
 export async function getAllAnime(
@@ -607,14 +687,12 @@ export async function getAllAnime(
   wantedTypes = allAvailableTypes,
   wantedPage = null,
   includeSeasons = false,
-  output = "anime_list.json",
 ) {
   await init();
   let animeLinks = [];
 
   const fetchPage = async (pageNum) => {
-    const url =
-      pageNum === 1 ? CATALOGUE_URL : `${CATALOGUE_URL}?page=${pageNum}`;
+    const url = pageNum === 1 ? CATALOGUE_URL : `${CATALOGUE_URL}?page=${pageNum}`;
     const res = await axios.get(url, { headers: getHeaders(CATALOGUE_URL) });
     const $ = cheerio.load(res.data);
 
@@ -642,7 +720,7 @@ export async function getAllAnime(
         anime.seasons = Array.isArray(seasons) ? seasons : [];
       } catch (err) {
         console.warn(
-          `⚠️ Failed to fetch seasons for ${anime.title}: ${err.message}`,
+          `Failed to fetch seasons for ${anime.title}: ${err.message}`,
         );
         anime.seasons = [];
       }
@@ -650,113 +728,79 @@ export async function getAllAnime(
     }
   };
 
-  try {
-    if (wantedPage > 0) {
-      await fetchPage(wantedPage);
-      if (includeSeasons) await enrichWithSeasons(animeLinks);
-      return animeLinks;
-    } else {
-      let currentPage = 1;
-      while (await fetchPage(currentPage++)) {
-        await new Promise((r) => setTimeout(r, 300));
-      }
-
-      const uniqueLinks = [
-        ...new Map(animeLinks.map((item) => [item.url, item])).values(),
-      ];
-      if (includeSeasons) await enrichWithSeasons(uniqueLinks);
-
-      return uniqueLinks;
+  if (wantedPage > 0) {
+    await fetchPage(wantedPage);
+    if (includeSeasons) await enrichWithSeasons(animeLinks);
+    return animeLinks;
+  } else {
+    let currentPage = 1;
+    while (await fetchPage(currentPage++)) {
+      await new Promise((r) => setTimeout(r, 300));
     }
-  } catch (err) {
-    console.error("error :", err.message);
-    return false;
+
+    const uniqueLinks = [
+      ...new Map(animeLinks.map((item) => [item.url, item])).values(),
+    ];
+
+    if (includeSeasons) await enrichWithSeasons(uniqueLinks);
+    return uniqueLinks;
   }
 }
 
 export async function getLatestEpisodes(
   wantedLanguages = allAvailableLanguages,
 ) {
-  try {
-    await init();
-    const res = await axios.get(BASE_URL, { headers: getHeaders() });
-    const $ = cheerio.load(res.data);
+  await init();
+  const res = await axios.get(BASE_URL, { headers: getHeaders() });
+  const $ = cheerio.load(res.data);
 
-    const container = $("#containerAjoutsAnimes");
-    const episodes = [];
+  const container = $("#containerAjoutsAnimes");
+  const episodes = [];
 
-    container.find(".as-carte-anime").each((_, el) => {
-      const anchor = $(el);
-      const data = parseCarousel($, anchor, wantedLanguages, "episode");
-      if(data) {
-        episodes.push(data);
-      }
-    });
+  container.find(".as-carte-anime").each((_, el) => {
+    const anchor = $(el);
+    const data = parseCarousel($, anchor, wantedLanguages, "episode");
+    if(data) {
+      episodes.push(data);
+    }
+  });
 
-    return episodes;
-  } catch (err) {
-    console.error("Failed to fetch today episodes:", err.message);
-    return [];
-  }
+  return episodes;
 }
 
 export async function getLatestScans(wantedLanguages = allAvailableLanguages) {
-  try {
-    await init();
-    const res = await axios.get(BASE_URL, { headers: getHeaders() });
-    const $ = cheerio.load(res.data);
+  await init();
+  const res = await axios.get(BASE_URL, { headers: getHeaders() });
+  const $ = cheerio.load(res.data);
+  const container = $("#containerAjoutsScans");
+  const scans = [];
+  container.find(".as-carte-scan").each((_, el) => {
+    const anchor = $(el);
+    const data = parseCarousel($, anchor, wantedLanguages, "chapter");
+    if(data) {
+      scans.push(data);
+    }
+  });
 
-    const container = $("#containerAjoutsScans");
-    const scans = [];
-
-    container.find(".as-carte-scan").each((_, el) => {
-      const anchor = $(el);
-      const data = parseCarousel($, anchor, wantedLanguages, "chapter");
-      if(data) {
-        scans.push(data);
-      }
-    });
-
-    return scans;
-  } catch (err) {
-    console.error("Failed to fetch today scans:", err.message);
-    return [];
-  }
+  return scans;
 }
 
 export async function getRandomAnime(
   wantedLanguages = mainAvailableLanguages,
   wantedTypes = allAvailableTypes,
   maxAttempts = 50,
-  attempt = 0,
 ) {
   await init();
-  try {
+  for (let attempt = 0; attempt <= (maxAttempts ?? 50); attempt++) {
     const res = await axios.get(`${CATALOGUE_URL}/?search=&random=1`, {
       headers: getHeaders(CATALOGUE_URL),
     });
-
     const $ = cheerio.load(res.data);
     const anchor = $("#list_catalog > .as-carte > a.as-carte-lien");
     const data = parseCatalog($, anchor, wantedLanguages, wantedTypes);
-    if(data) {
-      return data;
-    } else {
-      if (maxAttempts === null || attempt < maxAttempts) {
-        return await getRandomAnime(
-          wantedLanguages,
-          wantedTypes,
-          maxAttempts,
-          attempt + 1,
-        );
-      } else {
-        throw new Error("Max attempts reached without finding a valid anime.");
-      }
-    }
-  } catch (err) {
-    console.error("Failed to fetch random anime:", err.message);
-    return null;
+    if (data) return data;
   }
+  throw new Error("Aucun anime valide trouvé");
 }
 
 export async function getChapterTitles(
@@ -764,9 +808,7 @@ export async function getChapterTitles(
   includeNumberImg = false,
   includeEncodedTitle = false,
 ) {
-  const res = await axios.get(mangaUrl, {
-    headers: getHeaders(mangaUrl),
-  });
+  const res = await axios.get(mangaUrl, { headers: getHeaders(mangaUrl) });
 
   const $ = cheerio.load(res.data);
   const scriptTags = $("script")
@@ -776,10 +818,11 @@ export async function getChapterTitles(
     );
   const title = encodeURIComponent($("#titreOeuvre").text());
   const urlInfo = `${mangaUrl.split("/").slice(0, 3).join("/")}/s2/scans/get_nb_chap_et_img.php?oeuvre=${title}`;
-
-  const infoPage = await axios.get(urlInfo, { headers: getHeaders() });
-
+  const infoPage = await axios.get(urlInfo, { headers: getHeaders(mangaUrl) });
   const titleChapter = infoPage.data;
+  if (!titleChapter || typeof titleChapter !== "object")
+    throw new Error("Réponse invalide de get_nb_chap_et_img.php");
+
   const totalChapters = Object.keys(titleChapter).length;
   let epRetards = 0;
   let listChapters = [];
@@ -839,7 +882,7 @@ export async function getChapterTitles(
       const fin =
         size == 0 ? totalChapters : first + totalChapters - epRetards - 1;
       for (let i = debut; i <= fin; i++) {
-        listChapters.push("Episode " + i);
+        listChapters.push("Chapitre " + i);
       }
     }
   }
@@ -875,7 +918,9 @@ export async function getImgScans(
 
   if (!numberImg || !encodedTitle) {
     const infoScan = await getChapterTitles(mangaUrl, true, true);
-    numberImg = infoScan.scans[wantedChapter.toString()].numberImg;
+    const chapter = infoScan.scans[wantedChapter];
+    if (!chapter) throw new Error("Chapitre introuvable");
+    numberImg = chapter.numberImg;
     encodedTitle = infoScan.encodedTitle;
   }
 

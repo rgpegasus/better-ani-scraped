@@ -33,21 +33,34 @@ const animesama = new AnimeScraper('animesama') //for Anime Sama
 
 ## `AnimeScraper("animesama")` methods
 
-- [searchAnime](#animesamasearchanimequery-limit--10-wantedlanguages--vostfr-vf-vastfr-wantedtypes--anime-film-scans-autres-wantedpage--1)
+- [getWorkingUrl](#animesamagetworkingurllisturl--httpsanime-samapw)
+- [searchAnime](#animesamasearchanimequery-limit--10-wantedlanguages--vostfr-vf-vastfr-wantedtypes--anime-film-scans-webtoon-autres-wantedpage--1)
 - [getSeasons](#animesamagetseasonsanimeurl-wantedlanguages--vostfr-vf-va-vkr-vcn-vqc-vf1-vf2-wantedtypes--anime-kai-scans)
-- [getEpisodeTitles](#animesamagetepisodetitlesseasonurl-numberepisode)
-- [getEmbed](#animesamagetembedseasonurl-hostpriority--sendvid-sibnet-vidmoly-smoothpre-allhost--false-includeinfo--false)
+- [getEpisodeTitles](#animesamagetepisodetitlesseasonurl-numberepisode-html--null)
+- [getEmbed](#animesamagetembedseasonurl-hostpriority--ansembed-sendvid-smoothpre-uqload-susanexpectcare-allhost--false-includeinfo--false-lazy--false)
 - [getAnimeInfo](#animesamagetanimeinfoanimeurl)
 - [getAvailableLanguages](#animesamagetavailablelanguagesseasonurl-wantedlanguages--vostfr-vf-va-vkr-vcn-vqc-vf1-vf2-includenumberepisodes--false)
-- [getAllAnime](#animesamagetallanimewantedlanguages--vostfr-vf-vastfr-wantedtypes--anime-film-scans-autres-wantedpage--0-includeseasons--false-output--anime_listjson)
+- [getAllAnime](#animesamagetallanimewantedlanguages--vostfr-vf-vastfr-wantedtypes--anime-film-scans-webtoon-autres-wantedpage--null-includeseasons--false)
 - [getLatestEpisodes](#animesamagetlatestepisodeswantedlanguages--vostfr-vf-va-vkr-vcn-vqc-vf1-vf2)
 - [getLatestScans](#animesamagetlatestscanswantedlanguages--vostfr-vf-va-vkr-vcn-vqc-vf1-vf2)
-- [getRandomAnime](#animesamagetrandomanimewantedlanguages--vostfr-vf-vastfr-wantedtypes--anime-film-scans-autres-maxattempts--null-attempt--0)
+- [getRandomAnime](#animesamagetrandomanimewantedlanguages--vostfr-vf-vastfr-wantedtypes--anime-film-scans-webtoon-autres-maxattempts--50)
 - [getChapterTitles](#animesamagetchaptertitlesmangaurl-includenumberimg--false-includeencodedtitle--false)
 - [getImgScans](#animesamagetimgscansmangaurl-wantedchapter-numberimg--null-encodedtitle--null)
 
 
-### `animesama.searchAnime(query, limit = 10, wantedLanguages = ["vostfr", "vf", "vastfr"], wantedTypes = ["Anime", "Film", "Scans", "Autres"], wantedPage = 1)`
+### `animesama.getWorkingUrl(listUrl = "https://anime-sama.pw")`
+Finds the current working domain of anime-sama by following the main button of the redirect page.
+
+- **Parameters:**
+  - `listUrl` *(string)*: URL of the page that lists the current domain.
+- **Returns:**  
+  The working base URL as a string, without trailing slash (for example `"https://anime-sama.to"`). Throws if the link cannot be found, if the site answers with an error, or after 10 seconds without answer.
+
+> Every other function calls it internally. The result is kept for 30 minutes, you don't need to call it yourself.
+
+---
+
+### `animesama.searchAnime(query, limit = 10, wantedLanguages = ["vostfr", "vf", "vastfr"], wantedTypes = ["Anime", "Film", "Scans", "Webtoon", "Autres"], wantedPage = 1)`
 Searches for anime titles that match the given query.
 
 - **Parameters:**
@@ -55,7 +68,7 @@ Searches for anime titles that match the given query.
   - `limit` *(number)*: Maximum number of results to return.
   - `wantedLanguages` *(string[])*: Array of wanted languages.
   - `wantedTypes` *(string[])*: Array of wanted types.
-  - `wantedPage` *(number)*: The catalog page number.
+  - `wantedPage` *(number)*: The catalog page number. If `0` or `null`, the pages are fetched one after the other until `limit` results are found.
 - **Returns:**  
   An array of anime objects:
   ```js
@@ -63,10 +76,7 @@ Searches for anime titles that match the given query.
     {
       url: string,
       title: string,
-      altTitles: string[],
       cover: string,
-      synopsis: string,
-      genres: string[],
       types: string[],
       languages: string[],
     },
@@ -77,7 +87,7 @@ Searches for anime titles that match the given query.
 ---
 
 ### `animesama.getSeasons(animeUrl, wantedLanguages = ["vostfr", "vf", "va", "vkr", "vcn", "vqc", "vf1", "vf2"], wantedTypes = ["Anime", "Kai", "Scans"])`
-Fetches all available seasons of an anime in the first valid language specified.
+Fetches all available seasons of an anime. For each season, the languages are tried in the given order and the first one that exists is kept.
 
 - **Parameters:**
   - `animeUrl` *(string)*: URL of the anime’s page.
@@ -91,7 +101,7 @@ Fetches all available seasons of an anime in the first valid language specified.
       title: string, 
       url: string,
       language: string,
-      type: string
+      type: string //"Anime", "Kai" or "Scans"
     },
     ...
   ]
@@ -99,18 +109,19 @@ Fetches all available seasons of an anime in the first valid language specified.
 
 ---
 
-### `animesama.getEpisodeTitles(seasonUrl, numberEpisode)`
+### `animesama.getEpisodeTitles(seasonUrl, numberEpisode, html = null)`
 Fetches the names of all episodes in a season.
 
 - **Parameters:**
   - `seasonUrl` *(string)*: URL of the anime’s season page.
   - `numberEpisode` *(number)*: The number of episodes in the season.
+  - `html` *(string|null)*: The already downloaded HTML of `seasonUrl`. If given, the page is not requested again.
 - **Returns:**  
   An array of episode titles.
 
 ---
 
-### `animesama.getEmbed(seasonUrl, hostPriority = ["sendvid", "sibnet", "vidmoly", "smoothpre"], allHost = false, includeInfo = false)`
+### `animesama.getEmbed(seasonUrl, hostPriority = ["ansembed", "sendvid", "smoothpre", "uqload", "susanexpectcare"], allHost = false, includeInfo = false, lazy = false)`
 Retrieves embed URLs for episodes, prioritizing by host.
 
 - **Parameters:**
@@ -118,6 +129,7 @@ Retrieves embed URLs for episodes, prioritizing by host.
   - `hostPriority` *(string[])*: Array of preferred hostnames.
   - `allHost` *(boolean)*: If `true`, fetches all available embeds contained in *hostPriority*.
   - `includeInfo` *(boolean)*: If `true`, also fetches the name and the number of episodes of the season.
+  - `lazy` *(boolean)*: If `true`, no link is resolved (no request to `lien.php`). Each episode gets the list of its unresolved links instead, to be resolved later with `resolveLienUrl()` for the episode that is actually played. `hostPriority` and `allHost` are ignored.
 - **Returns:**  
   - An array of embed video object if `includeInfo = false`:
   ```js
@@ -148,6 +160,19 @@ Retrieves embed URLs for episodes, prioritizing by host.
   }
 
   ```
+  - If `lazy = true`, each episode object is (inside the same array or `episodes` array as above):
+  ```js
+  {
+    title: string,
+    url: string[], //unresolved lien.php URLs, one per player (use resolveLienUrl)
+    host: [], //always empty: the host is only known once the link is resolved
+    lazy: true,
+  }
+  ```
+  Throws if the page has no episode token or no episode array.
+
+> Without `lazy`, one request per episode and per player is sent to `lien.php`, at most 3 at the same time. Links that cannot be resolved are ignored, and episodes without any usable host are not returned.
+
 ---
 
 ### `animesama.getAnimeInfo(animeUrl)`
@@ -161,9 +186,20 @@ Extracts basic information from an anime page.
   {
     title: string,
     altTitles: string[],
-    cover: string,
+    cover: string | null,
+    banner: string | null,
     genres: string[],
-    synopsis: string
+    synopsis: string,
+    similaires: [ //similar anime
+      {
+        url: string,
+        title: string,
+        cover: string | null,
+        types: string[],
+        languages: string[],
+      },
+      ...
+    ]
   }
   ```
 
@@ -175,7 +211,7 @@ Checks which languages are available for a given anime season.
 - **Parameters:**
   - `seasonUrl` *(string)*: URL of the anime's season page.
   - `wantedLanguages` *(string[])*: Array of preferred languages.
-  - `includeNumberEpisodes` *(boolean)*: If `true`, also fetches the number of episodes in each language.
+  - `includeNumberEpisodes` *(boolean)*: If `true`, also fetches the number of episodes in each language. The episodes are only counted, their links are not resolved.
 - **Returns:**  
   An array of objects containing available languages and their episode count if `includeNumberEpisodes = true`:
   ```js
@@ -187,45 +223,39 @@ Checks which languages are available for a given anime season.
     ...
   ]
   ```
-  Else, an array of available languages
+  Else, an array of available languages (lowercase, for example `["vostfr", "vf"]`).
+
 ---
 
-### `animesama.getAllAnime(wantedLanguages = ["vostfr", "vf", "vastfr"], wantedTypes = ["Anime", "Film", "Scans", "Autres"], wantedPage = 0, includeSeasons = false, output = "anime_list.json")`
-Fetches the full anime catalog, optionally including season information.
+### `animesama.getAllAnime(wantedLanguages = ["vostfr", "vf", "vastfr"], wantedTypes = ["Anime", "Film", "Scans", "Webtoon", "Autres"], wantedPage = null, includeSeasons = false)`
+Fetches the anime catalog, optionally including season information.
 
 - **Parameters:**
   - `wantedLanguages` *(string[])*: Array of preferred languages.
   - `wantedTypes` *(string[])*: Array of wanted types.
-  - `wantedPage` *(number)*: The catalog page number.
+  - `wantedPage` *(number|null)*: The catalog page number. If `0` or `null`, every page of the catalog is fetched (very slow).
   - `includeSeasons` *(boolean)*: If `true`, also fetches seasons for each anime (very slow).
-  - `output` *(string)*: File name to save the result as JSON.  Useless if `wantedPage > 0`.
 - **Returns:**  
-  An array of anime objects if `page > 0` and `includeSeasons = false`: 
+  An array of anime objects if `includeSeasons = false`: 
   ```js
   [
     {
       url: string,
       title: string,
-      altTitles: string[],
       cover: string,
-      synopsis: string,
-      genres: string[],
       types: string[],
       languages: string[],
     },
     ...
   ]
   ```
-  Else, An array of anime objects if `page > 0` and `includeSeasons = true`: 
+  Else, an array of anime objects with their seasons (an anime whose seasons cannot be fetched gets an empty `seasons` array): 
   ```js
   [
     {
       url: string,
       title: string,
-      altTitles: string[],
       cover: string,
-      synopsis: string,
-      genres: string[],
       types: string[],
       languages: string[],
       seasons: [
@@ -241,7 +271,7 @@ Fetches the full anime catalog, optionally including season information.
     ...
   ]
   ```
-  Else, `true` if the json file creation was successful, `false` otherwise.
+  When `wantedPage` is `0` or `null`, duplicates are removed. Nothing is written to a file anymore.
 
 ---
 
@@ -257,7 +287,8 @@ Scrapes the latest released episodes, optionally filtered by language.
     {
       title: string,
       url: string,
-      cover: string,
+      cover: string | null,
+      types: string[],
       language: string,
       episode: string
     }
@@ -268,7 +299,7 @@ Scrapes the latest released episodes, optionally filtered by language.
 ---
 
 ### `animesama.getLatestScans(wantedLanguages = ["vostfr", "vf", "va", "vkr", "vcn", "vqc", "vf1", "vf2"])`
-Scrapes the latest released episodes, optionally filtered by language.
+Scrapes the latest released scans, optionally filtered by language.
 
 - **Parameters:**
   - `wantedLanguages` *(string[])*: Array of preferred languages.
@@ -279,8 +310,8 @@ Scrapes the latest released episodes, optionally filtered by language.
     {
       title: string,
       url: string,
-      cover: string,
-      type: string,
+      cover: string | null,
+      types: string[],
       language: string,
       chapter: string
     }
@@ -290,28 +321,25 @@ Scrapes the latest released episodes, optionally filtered by language.
 
 ---
 
-### `animesama.getRandomAnime(wantedLanguages = ["vostfr", "vf", "vastfr"], wantedTypes = ["Anime", "Film", "Scans", "Autres"], maxAttempts = null, attempt = 0)`
+### `animesama.getRandomAnime(wantedLanguages = ["vostfr", "vf", "vastfr"], wantedTypes = ["Anime", "Film", "Scans", "Webtoon", "Autres"], maxAttempts = 50)`
 Fetches a random anime from the catalog.
 
 - **Parameters:**
   - `wantedLanguages` *(string[])*: Array of preferred languages.
   - `wantedTypes` *(string[])*: Array of preferred types.
-  - `maxAttempts` *(number|null)* The number of attempts of the function. If `null`, retry until a result is obtained.
-  - `attempt` *(number)* Current number of attempts. (***leave empty***)
+  - `maxAttempts` *(number|null)* The number of retries if the random anime does not match the filters. If `null`, `50` is used.
 - **Returns:**  
   An anime object:
   ```js
   {
     url: string,
     title: string,
-    altTitles: string[],
     cover: string,
-    synopsis: string,
-    genres: string[],
     types: string[],
     languages: string[],
   }
   ```
+  Throws if no valid anime is found after `maxAttempts + 1` requests.
 
 ---
 
@@ -364,6 +392,8 @@ Fetches the names of all chapters in a manga.
     ...
   ]
   ```
+  Throws if the site does not return the chapter list in the expected format.
+
 ---
 
 ### `animesama.getImgScans(mangaUrl, wantedChapter, numberImg = null, encodedTitle = null)`
@@ -376,31 +406,49 @@ Fetches the images of a chapter.
   - `encodedTitle` *(string|null)*: The encoded URI component of the manga title. It must come from the result value of `encodedTitle` from `animesama.getChapterTitles()`
 >  `numberImg` and `encodedTitle` are recalculated internally if missing. Using both values improves performance by avoiding redundant computations.
 - **Returns:**  
-  An array of image URLs.
+  An array of image URLs. Throws `"Chapitre introuvable"` if `wantedChapter` does not exist (only checked when `numberImg` or `encodedTitle` is missing).
 
 ---
 
 ## Utility functions 
 
 - [getVideoUrlFromEmbed](#getvideourlfromembedsource-embedurl)
+- [resolveLienUrl](#resolvelienurlurl-referer--url)
 
 ### `getVideoUrlFromEmbed(source, embedUrl)`
 Retrieves the video URL of the source's embed.
 
 - **Parameters:**
-  - `source` *(string)*: The embed source (only "sibnet", "sendvid", "vidmoly", "smoothpre" and "embed4me" available at the moment)
+  - `source` *(string)*: The embed source ("sibnet", "sendvid", "vidmoly", "smoothpre", "embed4me", "ansembed" and "uqload" available at the moment). Throws `Unsupported embed source` for any other value.
   - `embedUrl` *(string)*: URL of the embed’s episode page
 - **Returns:**  
   A video URL as a string:
-  - `sibnet`: mp4
-  - `sendvid`: mp4
-  - `vidmoly`: {*videoUrl*: m3u8, *openingTime*: [ start, end ]}
+  - `sendvid`: mp4 
+  - `smoothpre`: m3u8
+  - `ansembed` : m3u8
+  - `uqload`: m3u8
+  - `susanexpectcare` : m3u8
+  - `sibnet`: mp4 ***deprecated***
+  - `vidmoly`: {*videoUrl*: m3u8, *openingTime*: [ start, end ]} ***deprecated***
   - `oneupload`: m3u8 ***deprecated***
   - `movearnpre`: m3u8 ***deprecated***
-  - `smoothpre`: m3u8
-  - `embed4me`: m3u8
+  - `embed4me`: m3u8 ***deprecated***
 
 ---
 
+### `resolveLienUrl(url, referer = url)`
+Resolves a `lien.php` URL (the ones returned by `getEmbed` with `lazy = true`) into the real embed URL, which can then be given to `getVideoUrlFromEmbed`.
+
+- **Parameters:**
+  - `url` *(string)*: The `lien.php` URL.
+  - `referer` *(string)*: The `Referer` header sent with the request.
+- **Returns:**  
+  A promise of the embed URL as a string, or `null` if it could not be resolved. It never throws.
+
+> At most 3 requests are sent at the same time, whatever the number of calls. A successful result is kept for 30 minutes and calls for the same URL share the same request. A failure (for example `429 Too Many Requests`) is **not** retried and **not** kept: calling the function again sends a new request.
+
+---
+
+> All requests stop after 15 seconds. Unless stated otherwise, a network or parsing error is thrown to the caller instead of being replaced by an empty result.
 
 > ⚠️ This project scrapes data from online sources. Use at your own risk.

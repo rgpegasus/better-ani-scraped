@@ -1,11 +1,11 @@
-import { AnimeScraper } from "../../index.js"; // REPLACE BY "from 'better-ani-scraped';"
+import { AnimeScraper, utilityFunctions } from "../../index.js";
 
 const main = async () => {
   const animesama = new AnimeScraper('animesama');
   const BASE_URL = await animesama.getWorkingUrl();
-  const animeUrl = `${BASE_URL}/catalogue/tougen-anki/`;
-  
-  const seasons = await animesama.getSeasons(animeUrl, ["vostfr", "vf"], ["Anime", "Scans"]);
+  const animeUrl = `${BASE_URL}/catalogue/one-piece/`;
+
+  const seasons = await utilityFunctions.debug(() => animesama.getSeasons(animeUrl, ["vostfr", "vf"], ["Anime", "Scans"]));
   console.log("Seasons: ", seasons);
 };
 
