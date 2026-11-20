@@ -190,6 +190,7 @@ Extracts basic information from an anime page.
     banner: string | null,
     genres: string[],
     synopsis: string,
+    malUrl: string,
     similaires: [ //similar anime
       {
         url: string,

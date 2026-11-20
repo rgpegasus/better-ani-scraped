@@ -623,6 +623,14 @@ export async function getAnimeInfo(animeUrl) {
   })
   .get()
   .filter((anime) => anime.url && anime.title);
+  
+  const malUrl = $('ul.oe-liens > li > a')
+  .map((_, el) => {
+    const mal = $(el).attr('href');
+    if (mal?.includes('myanimelist')) {
+      return mal;
+    }
+  }).get()[0] ?? null;
   return {
     title,
     altTitles,
@@ -630,6 +638,7 @@ export async function getAnimeInfo(animeUrl) {
     banner,
     genres,
     synopsis,
+    malUrl,
     similaires,
   };
 }
